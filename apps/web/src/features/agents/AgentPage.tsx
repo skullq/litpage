@@ -221,7 +221,6 @@ function AgentBanners({ d }: { d: AgentDetail }) {
       </div>,
     );
   }
-  if (!d.available) out.push(<div key="plan" className="nc-agent-banner">{t('lp.agents.using_this_agent_requires_an_upgrade', 'Using this agent requires an upgrade to {productName}', { productName: 'Business' })}<button type="button" className="nc-agent-banner-btn" onClick={() => useUI.getState().openSettings('plans')}>{t('lp.agents.upgrade_to_try_it', 'Upgrade to try it')}</button></div>);
   
   const changePermissions = (anchor: HTMLElement) => {
     if (records.get<SpaceRecord>('space', useSession.getState().spaceId)?.plan_type === 'enterprise') openAgentShare(d, anchor);

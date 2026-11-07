@@ -73,9 +73,6 @@ function navGroups(): { title: string; items: NavItem[] }[] {
       items: [
         { key: 'security', label: t('lp.settings.security', 'Security'), icon: 'shield', owner: true, keywords: ['publishing', 'export', 'guests', 'support access', 'data retention'] },
         { key: 'identity', label: t('lp.settings.identity', 'Identity'), icon: 'idCard', owner: true, keywords: ['saml', 'sso', 'scim', 'domains'] },
-        { key: 'analytics', label: t('lp.settings.analytics', 'Analytics'), icon: 'chartLine', admin: true, enterpriseMembers: true, keywords: ['workspace analytics', 'page views', 'search'] },
-        { key: 'audit-log', label: t('lp.settings.audit_log', 'Audit log'), icon: 'auditLog', owner: true, keywords: ['audit', 'events', 'log'] },
-        { key: 'content-search', label: t('lp.settings.content_search', 'Content search'), icon: 'contentSearch', owner: true, keywords: ['content search', 'retained pages'] },
       ],
     },
     {
@@ -91,20 +88,12 @@ function navGroups(): { title: string; items: NavItem[] }[] {
         { key: 'developers', label: t('lp.settings.developer', 'Developer'), icon: 'curlyBraces', keywords: ['token', 'api', 'developer mode'] },
       ],
     },
-    {
-      title: t('lp.settings.access_billing', 'Access & billing'),
-      items: [
-        { key: 'requests', label: t('lp.settings.requests', 'Requests'), icon: 'inboxArrowDown', admin: true, keywords: ['upgrade requests'] },
-        { key: 'billing', label: t('lp.settings.billing', 'Billing'), icon: 'creditCard', owner: true, keywords: ['invoice', 'payment'] },
-        { key: 'plans', label: t('lp.settings.explore_plans', 'Explore plans'), icon: 'map', keywords: ['plan', 'upgrade', 'plus', 'business', 'enterprise'] },
-      ],
-    },
   ];
 }
 
 const ADMIN_FALLBACK: Partial<Record<SettingsKey, SettingsKey>> = {
   teamspaces: 'general', sidebar: 'general', security: 'general', identity: 'general', analytics: 'general', 'audit-log': 'general', 'content-search': 'general',
-  requests: 'plans', billing: 'plans',
+  requests: 'general', billing: 'general', plans: 'general',
 };
 
 export interface NavAccess { admin: boolean; owner: boolean; enterprise: boolean }
@@ -118,8 +107,9 @@ function visible(it: NavItem, a: NavAccess): boolean {
 export function normalizeSettingsKey(raw: string, access: boolean | NavAccess): SettingsKey {
   const a: NavAccess = typeof access === 'boolean' ? { admin: access, owner: access, enterprise: false } : access;
   const alias: Record<string, SettingsKey> = {
-    people: 'members', 'my-account': 'account', developer: 'developers', ai: 'lit-ai', mcp: 'lit-mcp', sites: 'public-pages', upgrade: 'plans',
-    audit: 'audit-log', auditlog: 'audit-log', 'workspace-analytics': 'analytics', 'admin-content-search': 'content-search',
+    people: 'members', 'my-account': 'account', developer: 'developers', ai: 'lit-ai', mcp: 'lit-mcp', sites: 'public-pages',
+    upgrade: 'general', plans: 'general', billing: 'general', requests: 'general',
+    audit: 'general', auditlog: 'general', 'workspace-analytics': 'general', 'admin-content-search': 'general',
   };
   const k = (alias[raw] ?? raw) as SettingsKey;
   const item = navGroups().flatMap((g) => g.items).find((i) => i.key === k);

@@ -55,26 +55,9 @@ function download(url: string, filename?: string) {
   a.remove();
 }
 
-/** Enterprise upsell card shown in place of an admin tool (owners upgrade, members request). */
-function EnterpriseUpsell({ title, description, points }: { title: string; description: string; points?: string[] }) {
-  const { space, owner } = useSpaceAccess();
-  return (
-    <div className="nc-set-ent-upsell">
-      <div className="ttl">{title}</div>
-      <div className="desc">{description}</div>
-      {points && (
-        <ul>
-          {points.map((p) => <li key={p}><Icon name="checkmarkFillSmall" size={14} />{p}</li>)}
-        </ul>
-      )}
-      <div className="actions">
-        {owner
-          ? <Button variant="primary" onClick={() => useUI.getState().set({ settingsSection: 'plans' })}>{t('lp.settings.upgrade_to_enterprise', 'Upgrade to Enterprise')}</Button>
-          : <Button variant="primary" onClick={() => space && void requestUpgrade(space.id, 'enterprise')}>{t('lp.settings.request_upgrade', 'Request upgrade')}</Button>}
-        {HELP_URL && <Button onClick={() => window.open(HELP_URL!, '_blank', 'noopener')}>{t('lp.settings.learn_more', 'Learn more')}</Button>}
-      </div>
-    </div>
-  );
+/** Enterprise upsell card: hidden. */
+function EnterpriseUpsell(_props: { title: string; description: string; points?: string[] }) {
+  return null;
 }
 
 /** Small SVG line/bar chart: one series of {date, value}. */

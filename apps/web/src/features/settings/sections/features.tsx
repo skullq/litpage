@@ -597,16 +597,7 @@ export function VerifiedPagesSection() {
       <div className="nc-set-verified-empty">
         <Icon name="badgeCheck" size={36} style={{ color: 'var(--lp-icon-tertiary)' }} />
         <div className="ttl">{t('lp.settings.verify_every_page', 'Verify every page')}</div>
-        {business ? (
-          <div className="sub">{t('lp.settings.no_verified_pages_yet_open_a', 'No verified pages yet. Open a page’s ••• menu and choose Verify to mark it as up to date.')}</div>
-        ) : (
-          <>
-            <div className="sub">{t('lp.settings.verify_any_page_by_upgrading_to', 'Verify any page by upgrading to the Business plan')}</div>
-            <Button className="big" icon="arrowInCircleUpAnimated" onClick={() => (owner ? useUI.getState().set({ settingsSection: 'plans' }) : void requestUpgrade(space.id, 'business'))}>
-              {owner ? t('lp.settings.upgrade', 'Upgrade') : t('lp.settings.request', 'Request')}
-            </Button>
-          </>
-        )}
+        <div className="sub">{t('lp.settings.no_verified_pages_yet_open_a', 'No verified pages yet. Open a page’s ••• menu and choose Verify to mark it as up to date.')}</div>
       </div>
   );
   return (

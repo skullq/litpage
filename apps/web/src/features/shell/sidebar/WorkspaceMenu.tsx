@@ -61,7 +61,7 @@ function WorkspaceMenu({ close }: { close: () => void }) {
           <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             <div className="nc-ws-menu-name nc-ellipsis notranslate">{space?.name}</div>
             <div className="nc-ws-menu-plan nc-ellipsis">
-              {planLabel(space)} · {n === 1 ? t('lp.shell.1_member', '1 member') : t('lp.shell.members_93ee', '{count} members', { count: n })}
+              {n === 1 ? t('lp.shell.1_member', '1 member') : t('lp.shell.members_93ee', '{count} members', { count: n })}
             </div>
           </div>
         </div>

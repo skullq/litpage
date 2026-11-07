@@ -92,10 +92,6 @@ export function settingsIndex(): SettingsHit[] {
     { section: 'security', tab: 'retention', id: 'purge-retention', label: t('lp.settings.how_long_deleted_pages_and_ai', 'How long deleted pages and AI chats are kept') },
     // Identity
     { section: 'identity', label: t('lp.settings.verified_domains', 'Verified domains'), keywords: ['saml', 'sso', 'scim'] },
-    // Analytics / audit / content search
-    { section: 'analytics', label: t('lp.settings.analytics', 'Analytics'), keywords: ['workspace analytics', 'page views', 'members activity', 'search terms'] },
-    { section: 'audit-log', label: t('lp.settings.audit_log', 'Audit log'), keywords: ['events', 'security log', 'export audit'] },
-    { section: 'content-search', label: t('lp.settings.content_search', 'Content search'), keywords: ['find pages', 'retained pages'] },
     // Features
     { section: 'import', label: t('lp.settings.import', 'Import'), keywords: ['csv', 'markdown', 'word', 'excel', 'html', 'zip'] },
     { section: 'lit-ai', label: t('lp.settings.litpage_ai', 'Litpage AI'), keywords: ['ai', 'instructions', 'personalize', 'web search', 'models', 'agents'] },
@@ -110,10 +106,6 @@ export function settingsIndex(): SettingsHit[] {
     { section: 'emoji', id: 'emoji-admin-only', label: t('lp.settings.emoji', 'Emoji'), keywords: ['custom emoji'] },
     { section: 'developers', id: 'developer-mode', label: t('lp.settings.turn_on_developer_features', 'Turn on developer features'), keywords: ['developer mode', 'api', 'token'] },
     { section: 'developers', id: 'new-token', label: t('lp.settings.generate_your_own_api_access_token', 'Generate your own API access token') },
-    // Access & billing
-    { section: 'requests', label: t('lp.settings.requests', 'Requests') },
-    { section: 'billing', label: t('lp.settings.billing', 'Billing'), keywords: ['invoice', 'payment'] },
-    { section: 'plans', label: t('lp.settings.explore_plans', 'Explore plans'), keywords: ['upgrade', 'enterprise', 'business'] },
   ];
 }
 

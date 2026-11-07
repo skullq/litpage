@@ -254,19 +254,9 @@ export function Pills<V extends string>({ value, items, onChange, big }: { value
   );
 }
 
-/** Plan-gated hint ("<highlight>Upgrade</highlight> to …"), an upsell row: opens Explore plans. */
-export function Upsell({ text, onClick }: { text: string; onClick?: () => void }) {
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      className="nc-set-upsell"
-      onClick={() => (onClick ? onClick() : useUI.getState().set({ settingsSection: 'plans' }))}
-    >
-      <Icon name="arrowInCircleUpAnimated" size={16} />
-      <span>{rich(text, {}, { highlight: (c) => <span className="hl">{c}</span> })}</span>
-    </div>
-  );
+/** Plan-gated hint ("<highlight>Upgrade</highlight> to …"), an upsell row: hidden. */
+export function Upsell(_props: { text: string; onClick?: () => void }) {
+  return null;
 }
 
 export function IdRow({ label, id }: { label: string; id: string }) {
