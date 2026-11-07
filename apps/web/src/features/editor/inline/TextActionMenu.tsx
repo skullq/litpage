@@ -17,6 +17,7 @@ import { useUI } from '../../../lib/store/ui.ts';
 import { domText, getSelectionOffsets, offsetOf, rectsForRange, setSelectionOffsets } from '../richTextDom.ts';
 import { useEditor } from '../editorState.ts';
 import { openBlockMenu } from '../BlockMenu.tsx';
+import { copySelectionRange, cutSelectionRange, pasteSelectionRange } from '../clipboard.ts';
 import { startCommentOnSelection } from '../../comments/comments.tsx';
 import { clearFormatRange, colorsOf, rangeHas, toggleMarkRange, valueOf, type TextRange } from './format.ts';
 import { openColorMenu } from './ColorMenu.tsx';
@@ -34,6 +35,8 @@ interface MenuState {
   range: TextRange | null;
   /** focus x / bottom of last line / top of first line (viewport coords) */
   pos: { x: number; y: number; top: number } | null;
+  /** Initial click point for multi-block context menu to prevent jumping to bottom on scroll */
+  blockAnchor?: { x: number; y: number; top: number; blockTop: number } | null;
   /** >0 while a child popup (link, color, turn into…) owns the focus: keep showing the card */
   frozen: number;
   composing: boolean;
@@ -42,10 +45,10 @@ interface MenuState {
   above?: boolean;
 }
 
-export const useTextMenu = create<MenuState>(() => ({ range: null, pos: null, frozen: 0, composing: false, mouseDown: false, above: false }));
+export const useTextMenu = create<MenuState>(() => ({ range: null, pos: null, blockAnchor: null, frozen: 0, composing: false, mouseDown: false, above: false }));
 
 export function hideTextMenu() {
-  useTextMenu.setState({ range: null, pos: null, frozen: 0, above: false });
+  useTextMenu.setState({ range: null, pos: null, blockAnchor: null, frozen: 0, above: false });
 }
 
 /** Freeze the card while a popup opened it is visible; returns the unfreeze function. */
@@ -75,7 +78,7 @@ export function currentTextSelection(): { range: TextRange; leaf: HTMLElement; b
   const a = leafOf(sel.anchorNode);
   const f = leafOf(sel.focusNode);
   if (!a || a !== f || !a.isContentEditable) return null;
-  if (!a.closest('.lit-page-content') || a.classList.contains('nc-code-leaf')) return null;
+  if (!a.closest('.lit-page-content')) return null;
   const off = getSelectionOffsets(a);
   if (!off || off.start === off.end) return null;
   return { range: { blockId: a.dataset.blockId!, property: a.dataset.property ?? 'title', start: off.start, end: off.end }, leaf: a, backward: off.backward };
@@ -89,10 +92,44 @@ function positionFor(leaf: HTMLElement, r: TextRange, backward: boolean): MenuSt
   return { x: backward ? first.left : last.right, y: last.bottom, top: first.top };
 }
 
-function evaluate() {
+function positionForBlocks(blockIds: string[], x?: number, y?: number): MenuState['pos'] {
+  const els = blockIds.map((id) => document.querySelector<HTMLElement>(`[data-block-id="${id}"]`)).filter((el): el is HTMLElement => !!el);
+  if (!els.length) return null;
+  const first = els[0].getBoundingClientRect();
+  const last = els[els.length - 1].getBoundingClientRect();
+  const clampedX = x !== undefined ? Math.max(last.left, Math.min(last.right, x)) : last.left + 24;
+  const targetY = y !== undefined ? y : last.bottom;
+  return { x: clampedX, y: targetY, top: first.top };
+}
+
+export function openTextMenuForBlocks(blockIds: string[], x?: number, y?: number): boolean {
+  if (blockIds.length < 2) return false;
+  const pos = positionForBlocks(blockIds, x, y);
+  if (!pos) return false;
+  const firstId = blockIds[0];
+  const len = valueOf(firstId, 'title').reduce((s, d) => s + d[0].length, 0);
+  const blockAnchor = { x: pos.x, y: pos.y, top: pos.top, blockTop: pos.top };
+  useTextMenu.setState({
+    range: { blockId: firstId, property: 'title', start: 0, end: len, blockIds: [...blockIds] },
+    pos,
+    blockAnchor,
+    mouseDown: false,
+    frozen: 0,
+  });
+  return true;
+}
+
+function evaluate(forceOpen = false) {
   const st = useTextMenu.getState();
   if (st.frozen > 0) return;
-  if (st.composing || st.mouseDown || useEditor.getState().selectedBlocks.length) {
+  if (!forceOpen && !st.range) return;
+  const selBlocks = useEditor.getState().selectedBlocks;
+  if (st.composing || st.mouseDown) {
+    if (st.range) useTextMenu.setState({ range: null, pos: null });
+    return;
+  }
+  if (selBlocks.length) {
+    if (st.range?.blockIds && st.range.blockIds.join() === selBlocks.join()) return;
     if (st.range) useTextMenu.setState({ range: null, pos: null });
     return;
   }
@@ -111,7 +148,7 @@ function evaluate() {
 let raf = 0;
 function schedule() {
   cancelAnimationFrame(raf);
-  raf = requestAnimationFrame(evaluate);
+  raf = requestAnimationFrame(() => evaluate(false));
 }
 
 /** Model offset under a viewport point inside `leaf`, or null when the point is not over a glyph, such as empty space to the right of the text. */
@@ -161,7 +198,7 @@ function wordAt(text: string, offset: number): { start: number; end: number } {
 
 /** * Right-click on text selects the word under the pointer, or keeps a selection that contains it, and shows this card at its usual place, including when the block was block-selected. * Returns false when the pointer is not over text (the caller lets the browser menu open). */
 export function openTextMenuAtPoint(leaf: HTMLElement, x: number, y: number): boolean {
-  if (!leaf.isContentEditable || !leaf.closest('.lit-page-content') || leaf.classList.contains('nc-code-leaf')) return false;
+  if (!leaf.isContentEditable || !leaf.closest('.lit-page-content')) return false;
   const cur = getSelectionOffsets(leaf);
   const sel = window.getSelection();
   const ed = useEditor.getState();
@@ -175,7 +212,21 @@ export function openTextMenuAtPoint(leaf: HTMLElement, x: number, y: number): bo
     leafOf(sel.focusNode) === leaf;
 
   const at = offsetAtPoint(leaf, x, y);
-  if (at === null && !hasSelectionInLeaf) return false;
+  const textLen = domText(leaf).length;
+  if (at === null && !hasSelectionInLeaf) {
+    if (textLen === 0) {
+      if (ed.selectedBlocks.length) ed.clearBlockSelection();
+      const lr = leaf.getBoundingClientRect();
+      useTextMenu.setState({
+        range: { blockId: leaf.dataset.blockId!, property: leaf.dataset.property ?? 'title', start: 0, end: 0 },
+        pos: { x: Math.max(lr.left, Math.min(lr.right, x)), y: lr.bottom, top: lr.top },
+        mouseDown: false,
+        frozen: 0,
+      });
+      return true;
+    }
+    return false;
+  }
 
   const inside = hasSelectionInLeaf && (at === null || (at >= cur.start && at <= cur.end));
   if (ed.selectedBlocks.length) ed.clearBlockSelection();
@@ -186,7 +237,7 @@ export function openTextMenuAtPoint(leaf: HTMLElement, x: number, y: number): bo
   }
   useTextMenu.setState({ mouseDown: false, frozen: 0 });
   cancelAnimationFrame(raf);
-  evaluate();
+  evaluate(true);
   return true;
 }
 
@@ -196,6 +247,8 @@ export function installTextMenuWatcher(): () => void {
     // selection collapsing (typing, clicking) hides immediately; growing waits for mouseup/keyup
     const st = useTextMenu.getState();
     if (st.frozen) return;
+    if (st.range?.blockIds?.length && useEditor.getState().selectedBlocks.join() === st.range.blockIds.join()) return;
+    if (st.range && st.range.start === 0 && st.range.end === 0 && !st.range.blockIds?.length) return;
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed) {
       if (st.range) useTextMenu.setState({ range: null, pos: null });
@@ -203,6 +256,13 @@ export function installTextMenuWatcher(): () => void {
     }
     if (!st.mouseDown) schedule();
   };
+  const unsubEditor = useEditor.subscribe((s) => {
+    const st = useTextMenu.getState();
+    if (st.frozen) return;
+    if (st.range?.blockIds?.length && s.selectedBlocks.join() !== st.range.blockIds.join()) {
+      useTextMenu.setState({ range: null, pos: null });
+    }
+  });
   const onDown = (e: MouseEvent) => {
     if (e.button === 2) return;
     if ((e.target as HTMLElement).closest?.('.lit-text-action-menu, .lit-overlay-container')) return;
@@ -214,14 +274,35 @@ export function installTextMenuWatcher(): () => void {
     setTimeout(schedule, 0);
   };
   const onKeyUp = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') return;
+    if (e.key === 'Escape') {
+      hideTextMenu();
+      return;
+    }
     schedule();
   };
   const onCompStart = () => useTextMenu.setState({ composing: true, range: null, pos: null });
   const onCompEnd = () => useTextMenu.setState({ composing: false });
-  const onScroll = () => {
+  const onScroll = (e?: Event) => {
+    // If the scroll happened inside the skills list or another popup, do not reposition the card
+    if (e && (e.target as HTMLElement | null)?.closest?.('.nc-tam-skills, .lit-text-action-menu, .lit-overlay-container')) return;
     const st = useTextMenu.getState();
     if (!st.range) return;
+    if (st.range.blockIds?.length) {
+      if (st.blockAnchor) {
+        const firstEl = document.querySelector<HTMLElement>(`[data-block-id="${st.range.blockIds[0]}"]`);
+        if (firstEl) {
+          const firstRect = firstEl.getBoundingClientRect();
+          const dy = firstRect.top - st.blockAnchor.blockTop;
+          useTextMenu.setState({
+            pos: { x: st.blockAnchor.x, y: st.blockAnchor.y + dy, top: st.blockAnchor.top + dy },
+          });
+          return;
+        }
+      }
+      const pos = positionForBlocks(st.range.blockIds, st.pos?.x);
+      if (pos) useTextMenu.setState({ pos });
+      return;
+    }
     const leaf = leafFor(st.range.blockId, st.range.property);
     if (!leaf) return;
     const pos = positionFor(leaf, st.range, false);
@@ -236,6 +317,7 @@ export function installTextMenuWatcher(): () => void {
   window.addEventListener('scroll', onScroll, true);
   window.addEventListener('resize', onScroll);
   return () => {
+    unsubEditor();
     document.removeEventListener('selectionchange', onSel);
     document.removeEventListener('mousedown', onDown, true);
     document.removeEventListener('mouseup', onUp, true);
@@ -247,7 +329,8 @@ export function installTextMenuWatcher(): () => void {
   };
 }
 
-const SKILLS = ['Improve writing', 'Proofread', 'Explain', 'Reformat'];
+const GENERAL_SKILLS = ['Improve writing', 'Proofread', 'Explain', 'Reformat'];
+const TECH_SKILLS = ['Explain config', 'Validate config', 'Add config comments', 'Generate technical doc'];
 const mod = isMac ? '⌘' : 'Ctrl+';
 const alt = isMac ? '⌥' : 'Alt+';
 const shift = isMac ? '⇧' : 'Shift+';
@@ -255,6 +338,10 @@ const ctrl = isMac ? '⌃' : 'Ctrl+';
 
 export function askAI(r: TextRange, extra?: { prompt?: string; skill?: string; skillId?: string }) {
   hideTextMenu();
+  if (r.blockIds && r.blockIds.length > 1) {
+    window.dispatchEvent(new CustomEvent('nc:ask-ai', { detail: { blockId: r.blockIds[0], blockIds: r.blockIds, ...extra } }));
+    return;
+  }
   window.dispatchEvent(new CustomEvent('nc:ask-ai', { detail: { blockId: r.blockId, property: r.property, start: r.start, end: r.end, ...extra } }));
 }
 
@@ -314,13 +401,19 @@ export function TextActionMenu({ readOnly }: { readOnly: boolean }) {
   const isLink = annotationValue(value, range.start, range.end, 'a') !== undefined;
   const showTurnInto = range.property === 'title';
 
-  // place below the selection end; flip above when the card would leave the viewport
+  // place below the selection end (or cursor on block selection); flip above when the card would leave the viewport
   const vh = window.innerHeight;
   const vw = window.innerWidth;
   let left = pos.x;
   let top = pos.y;
-  if (above) top = Math.max(8 - 16, pos.top - size.h - 32); // card bottom 16px above the selection
-  else if (top + 16 + size.h > vh - 8) top = Math.max(8 - 16, pos.top - size.h - 32 + 8);
+  if (above) {
+    top = Math.max(8 - 16, pos.top - size.h - 32); // card bottom 16px above the selection
+  } else if (range.blockIds && range.blockIds.length > 1) {
+    // For multi-block right clicks, anchor right at the pointer and flip up if exceeding screen height
+    if (top + 16 + size.h > vh - 8) top = Math.max(8 - 16, top - size.h - 32);
+  } else if (top + 16 + size.h > vh - 8) {
+    top = Math.max(8 - 16, pos.top - size.h - 32 + 8);
+  }
   if (left + 16 + size.w > vw - 8) left = vw - 8 - size.w - 16;
 
   const withFreeze = (open: (unfreeze: () => void) => void, key?: string) => {
@@ -416,9 +509,51 @@ export function TextActionMenu({ readOnly }: { readOnly: boolean }) {
                 className="lit-block-action-menu nc-tam-more"
                 onPress={(el) => {
                   hideTextMenu();
-                  openBlockMenu([r.blockId], el.getBoundingClientRect());
+                  openBlockMenu(r.blockIds?.length ? r.blockIds : [r.blockId], el.getBoundingClientRect());
                 }}
               />
+            </div>
+          </div>
+          <div className="nc-tam-divider" />
+          <div className="nc-tam-row" style={{ gap: 2 }}>
+            <div
+              role="button"
+              tabIndex={0}
+              aria-label="Copy"
+              className="nc-tam-comment"
+              style={{ fontSize: 13, gap: 4, paddingInline: 6 }}
+              data-tooltip="Copy"
+              data-tooltip-sub={`${mod}C`}
+              onClick={() => { hideTextMenu(); copySelectionRange(r); }}
+            >
+              <Icon name="copy" size={16} />
+              Copy
+            </div>
+            <div
+              role="button"
+              tabIndex={0}
+              aria-label="Cut"
+              className="nc-tam-comment"
+              style={{ fontSize: 13, gap: 4, paddingInline: 6 }}
+              data-tooltip="Cut"
+              data-tooltip-sub={`${mod}X`}
+              onClick={() => { hideTextMenu(); cutSelectionRange(r); }}
+            >
+              <Icon name="scissors" size={16} />
+              Cut
+            </div>
+            <div
+              role="button"
+              tabIndex={0}
+              aria-label="Paste"
+              className="nc-tam-comment"
+              style={{ fontSize: 13, gap: 4, paddingInline: 6 }}
+              data-tooltip="Paste"
+              data-tooltip-sub={`${mod}V`}
+              onClick={() => { hideTextMenu(); void pasteSelectionRange(r); }}
+            >
+              <Icon name="clipboardPaste" size={16} />
+              Paste
             </div>
           </div>
           <div className="nc-tam-divider" />
@@ -456,7 +591,10 @@ export function TextActionMenu({ readOnly }: { readOnly: boolean }) {
                   <Icon name="sliders" size={16} style={{ color: 'var(--lp-icon-secondary)' }} />
                 </div>
               </div>
-              {SKILLS.map((s) => (
+              {((block.type === 'code' || (range.blockIds && range.blockIds.some((id) => getBlock(id)?.type === 'code')))
+                ? [...TECH_SKILLS, ...GENERAL_SKILLS]
+                : [...GENERAL_SKILLS, ...TECH_SKILLS]
+              ).map((s) => (
                 <div key={s} role="button" tabIndex={0} className="nc-tam-skill" onClick={() => askAI(r, { skill: s })}>
                   <span className="nc-ellipsis" style={{ flex: '1 1 0%', minWidth: 0 }}>{s}</span>
                   <div className="nc-tam-skill-edit">
@@ -546,9 +684,14 @@ function turnIntoMenuFor(r: TextRange): MenuDef {
         right: t.pickParent ? <Icon name="arrowChevronSingleRightSmall" size={16} style={{ color: 'var(--lp-icon-secondary)' }} /> : undefined,
         onSelect: () => {
           const anchor = leafFor(r.blockId, r.property)?.getBoundingClientRect();
-          t.apply([r.blockId], anchor);
+          const targetIds = r.blockIds?.length ? r.blockIds : [r.blockId];
+          t.apply(targetIds, anchor);
           // keep the text selected while the block keeps its id
-          if (!t.pickParent && getBlock(r.blockId)?.alive && t.type !== 'page' && !t.columns) useEditor.getState().requestFocus(r.blockId, r.start, { property: r.property, end: r.end });
+          if (r.blockIds && r.blockIds.length > 1) {
+            if (!t.pickParent && t.type !== 'page' && !t.columns) useEditor.getState().selectBlocks(r.blockIds, r.blockIds[0]);
+          } else if (!t.pickParent && getBlock(r.blockId)?.alive && t.type !== 'page' && !t.columns) {
+            useEditor.getState().requestFocus(r.blockId, r.start, { property: r.property, end: r.end });
+          }
         },
       })),
     }],

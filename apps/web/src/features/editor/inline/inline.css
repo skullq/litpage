@@ -37,7 +37,7 @@
   border-radius: 6px; color: var(--lp-icon-primary); fill: var(--lp-icon-primary); height: 28px; flex: 1 1 0%; padding-inline: 6px; justify-content: flex-start;
 }
 .nc-tam-comment:hover { background: var(--lp-bg-interactive-transparent); }
-.nc-tam-skills { max-height: 134px; overflow-y: auto; padding-block: 4px; }
+.nc-tam-skills { max-height: 134px; overflow-y: auto; padding-block: 4px; overscroll-behavior: contain; }
 .nc-tam-skills-head {
   display: flex; color: var(--lp-text-secondary); align-items: center; justify-content: space-between; white-space: nowrap; border-radius: 6px;
   height: 28px; gap: 6px; padding-inline: 8px 4px; font-size: 12px;

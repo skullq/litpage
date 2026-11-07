@@ -18,9 +18,10 @@ import { useUI } from '../../lib/store/ui.ts';
 import { pageUrl } from '../../lib/router.ts';
 import type { LeafApi } from './RichTextEditable.tsx';
 import { useEditor } from './editorState.ts';
-import { titleOf } from './commands.ts';
+import { deleteBlocks, titleOf } from './commands.ts';
 import { commitText } from './textHandlers.ts';
 import { formatDateValue } from './inline/dates.ts';
+import type { TextRange } from './inline/format.ts';
 
 export const BLOCKS_MIME = 'application/x-nc-blocks';
 
@@ -451,7 +452,10 @@ function toParsed(id: string): ParsedBlock | null {
   };
 }
 
+let lastClipboardPayload: { plain: string; html: string; json: string } | null = null;
+
 function writeClipboard(e: ClipboardEvent | null, payload: { plain: string; html: string; json: string }) {
+  lastClipboardPayload = payload;
   if (e?.clipboardData) {
     e.clipboardData.setData('text/plain', payload.plain);
     e.clipboardData.setData('text/html', payload.html);
@@ -474,16 +478,15 @@ export function copyBlocks(ids: string[], e: ClipboardEvent | null) {
 }
 
 /** Copy of a text selection inside one leaf: the partial rich text as a single block. */
-export function copyTextRange(blockId: string, property: string, start: number, end: number, e: ClipboardEvent) {
+export function copyTextRange(blockId: string, property: string, start: number, end: number, e: ClipboardEvent | null) {
   const b = getBlock(blockId);
   const value = (property === 'title' ? titleOf(blockId) : ((b?.properties as any)?.[property] ?? [])) as RichText;
   const part = slice(value, start, end);
   const isCode = b?.type === 'code';
   const plain = isCode ? toPlainText(part) : rtToMarkdown(part);
-  e.clipboardData?.setData('text/plain', plain);
-  e.clipboardData?.setData('text/html', isCode ? `<code>${escapeHtml(toPlainText(part))}</code>` : richTextToHtml(part));
-  e.clipboardData?.setData(BLOCKS_MIME, JSON.stringify({ v: 1, text: part }));
-  e.preventDefault();
+  const html = isCode ? `<code>${escapeHtml(toPlainText(part))}</code>` : richTextToHtml(part);
+  const json = JSON.stringify({ v: 1, text: part });
+  writeClipboard(e, { plain, html, json });
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -760,4 +763,120 @@ export function pasteAfterBlocks(ids: string[], data: DataTransfer) {
   run('paste', (tx) => { ids2 = createTree(tx, blocks, last.parent_id, last.parent_table, last.id); });
   if (ids2.length) useEditor.getState().selectBlocks(ids2, ids2[0]);
   if (internal?.blocks) offerPasteAndSync(syncSources(internal), ids2);
+}
+
+async function readClipboardAsDataTransfer(): Promise<DataTransfer | null> {
+  const dt = new DataTransfer();
+  let gotAny = false;
+  try {
+    if (navigator.clipboard?.read) {
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        if (item.types.includes('text/plain')) {
+          const blob = await item.getType('text/plain');
+          const text = await blob.text();
+          dt.setData('text/plain', text);
+          gotAny = true;
+        }
+        if (item.types.includes('text/html')) {
+          const blob = await item.getType('text/html');
+          const html = await blob.text();
+          dt.setData('text/html', html);
+          gotAny = true;
+        }
+      }
+    }
+  } catch {
+    /* fallback to readText or lastClipboardPayload */
+  }
+  if (!gotAny) {
+    try {
+      if (navigator.clipboard?.readText) {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          dt.setData('text/plain', text);
+          gotAny = true;
+        }
+      }
+    } catch {
+      /* fallback to lastClipboardPayload */
+    }
+  }
+  if (lastClipboardPayload) {
+    const curPlain = dt.getData('text/plain');
+    if (!gotAny || curPlain === lastClipboardPayload.plain) {
+      if (!gotAny) {
+        dt.setData('text/plain', lastClipboardPayload.plain);
+        dt.setData('text/html', lastClipboardPayload.html);
+      }
+      dt.setData(BLOCKS_MIME, lastClipboardPayload.json);
+      gotAny = true;
+    }
+  }
+  return gotAny ? dt : null;
+}
+
+export function copySelectionRange(r: TextRange) {
+  if (r.blockIds && r.blockIds.length > 1) {
+    copyBlocks(r.blockIds, null);
+    useUI.getState().toast('Copied to clipboard');
+    return;
+  }
+  if (r.start === r.end) {
+    copyBlocks([r.blockId], null);
+  } else {
+    copyTextRange(r.blockId, r.property, r.start, r.end, null);
+  }
+  useUI.getState().toast('Copied to clipboard');
+}
+
+export function cutSelectionRange(r: TextRange) {
+  if (r.blockIds && r.blockIds.length > 1) {
+    copyBlocks(r.blockIds, null);
+    deleteBlocks(r.blockIds);
+    return;
+  }
+  if (r.start === r.end) {
+    copyBlocks([r.blockId], null);
+    deleteBlocks([r.blockId]);
+    return;
+  }
+  copyTextRange(r.blockId, r.property, r.start, r.end, null);
+  const b = getBlock(r.blockId);
+  const value = (r.property === 'title' ? titleOf(r.blockId) : ((b?.properties as any)?.[r.property] ?? [])) as RichText;
+  const next = deleteRange(value, r.start, r.end);
+  commitText(r.blockId, r.property, next, r.start, { coalesce: false, action: 'cut' });
+  useEditor.getState().requestFocus(r.blockId, r.start, { property: r.property });
+}
+
+export async function pasteSelectionRange(r: TextRange) {
+  const dt = await readClipboardAsDataTransfer();
+  if (!dt) return;
+  if (r.blockIds && r.blockIds.length > 1) {
+    pasteAfterBlocks(r.blockIds, dt);
+    return;
+  }
+  const b = getBlock(r.blockId);
+  if (!b) return;
+  const value = (r.property === 'title' ? titleOf(r.blockId) : ((b?.properties as any)?.[r.property] ?? [])) as RichText;
+  const el = document.querySelector<HTMLElement>(`[data-content-editable-leaf][data-block-id="${r.blockId}"][data-property="${r.property}"]`) ?? document.createElement('div');
+  const fakeApi: LeafApi = {
+    el,
+    value: () => value,
+    selection: () => ({ start: r.start, end: r.end }),
+    setSelection: (start, end = start) => useEditor.getState().requestFocus(r.blockId, start, { property: r.property, end }),
+    isCollapsed: () => r.start === r.end,
+    atStart: () => r.start === 0,
+    atEnd: () => r.end === length(value),
+    caretRect: () => el.getBoundingClientRect(),
+    caretLine: () => ({ first: true, last: true, x: 0 }),
+    setPendingMarks: () => undefined,
+  };
+  pasteIntoBlock(r.blockId, r.property, fakeApi, dt);
+}
+
+export async function pasteBlocksFromMenu(ids: string[]) {
+  const dt = await readClipboardAsDataTransfer();
+  if (!dt) return;
+  pasteAfterBlocks(ids, dt);
 }

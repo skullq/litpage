@@ -11,6 +11,7 @@ const lucide: Record<string, LucideComp> = {
   ellipsis: L.Ellipsis, ellipsisSmall: L.Ellipsis, plus: L.Plus, plusSmall: L.Plus, arrowDiagonalUpRightSmall: L.ArrowUpRight,
   search: L.Search, settings: L.Settings, gear: L.Settings, questionMark: L.CircleHelp, help: L.CircleHelp, apps: L.LayoutGrid, star: L.Star,
   starFilled: L.Star, lock: L.Lock, unlock: L.LockOpen, link: L.Link, share: L.Share, trash: L.Trash2, duplicate: L.Copy, copy: L.Copy,
+  clipboardPaste: L.ClipboardPaste, scissors: L.Scissors,
   arrowTurnUpRight: L.CornerUpRight, commentFilled: L.MessageSquare, comment: L.MessageSquare, commentPencil: L.MessageSquareDiff,
   aiFace: L.Sparkles, ai: L.Sparkles, paperBolt: L.FileBox, blockColor: L.Paintbrush, arrowSquarePathUpDown: L.Repeat,
   textNormal: L.Type, listBullet: L.List, listNumber: L.ListOrdered, checklist: L.ListChecks, listToggle: L.ListCollapse,

@@ -1,7 +1,7 @@
 // Range formatting operations shared by the text action menu, keyboard shortcuts and popovers.
 // Every mutation is a transaction (commitText) and the DOM selection is restored afterwards.
 import {
-  addAnnotation, annotationsOf, hasAnnotation, removeAnnotation, toggleAnnotation, type Annotation, type RichText,
+  addAnnotation, annotationsOf, hasAnnotation, length, removeAnnotation, toggleAnnotation, type Annotation, type RichText,
 } from '@nc/shared/richtext.ts';
 import { getBlock } from '../../../lib/blocks.ts';
 import { commitText } from '../textHandlers.ts';
@@ -14,6 +14,7 @@ export interface TextRange {
   property: string;
   start: number;
   end: number;
+  blockIds?: string[];
 }
 
 export function valueOf(blockId: string, property = 'title'): RichText {
@@ -23,10 +24,18 @@ export function valueOf(blockId: string, property = 'title'): RichText {
 }
 
 export function restoreRange(r: TextRange) {
+  if (r.blockIds && r.blockIds.length > 1) {
+    useEditor.getState().selectBlocks(r.blockIds, r.blockIds[0]);
+    return;
+  }
   useEditor.getState().requestFocus(r.blockId, r.start, { property: r.property, end: r.end });
 }
 
 export function rangeHas(r: TextRange, key: Annotation[0]): boolean {
+  if (r.blockIds && r.blockIds.length > 1) {
+    const nonEmpty = r.blockIds.map((id) => valueOf(id, 'title')).filter((v) => length(v) > 0);
+    return nonEmpty.length > 0 && nonEmpty.every((v) => hasAnnotation(v, 0, length(v), key));
+  }
   return hasAnnotation(valueOf(r.blockId, r.property), r.start, r.end, key);
 }
 
@@ -38,6 +47,18 @@ function suggested(r: TextRange, ann: Annotation): boolean {
 }
 
 export function toggleMarkRange(r: TextRange, ann: Annotation, action = 'textAnnotationActions.annotateSelection') {
+  if (r.blockIds && r.blockIds.length > 1) {
+    const remove = rangeHas(r, ann[0]);
+    for (const id of r.blockIds) {
+      const v = valueOf(id, 'title');
+      const len = length(v);
+      if (len === 0) continue;
+      const next = remove ? removeAnnotation(v, 0, len, ann[0]) : addAnnotation(v, 0, len, ann);
+      commitText(id, 'title', next, len, { coalesce: false, action });
+    }
+    restoreRange(r);
+    return;
+  }
   if (r.start >= r.end) return;
   if (suggested(r, ann)) return;
   const next = toggleAnnotation(valueOf(r.blockId, r.property), r.start, r.end, ann);
@@ -71,6 +92,18 @@ export function lastUsedColor(): string | null {
 }
 
 export function setColorRange(r: TextRange, color: string) {
+  if (r.blockIds && r.blockIds.length > 1) {
+    pushRecentColor(color);
+    for (const id of r.blockIds) {
+      const v = valueOf(id, 'title');
+      const len = length(v);
+      if (len === 0) continue;
+      const next = addAnnotation(v, 0, len, ['h', color]);
+      commitText(id, 'title', next, len, { coalesce: false, action: 'textAnnotationActions.annotateSelection' });
+    }
+    restoreRange(r);
+    return;
+  }
   if (r.start >= r.end) return;
   pushRecentColor(color);
   if (suggested(r, ['h', color])) return;
@@ -101,6 +134,17 @@ export function colorsOf(value: RichText, start: number, end: number): { text?: 
 
 /** "Clear format" (⌘⌥\): drops bold/italic/underline/strike/code/colors; links, mentions and comments stay. */
 export function clearFormatRange(r: TextRange) {
+  if (r.blockIds && r.blockIds.length > 1) {
+    for (const id of r.blockIds) {
+      let next = valueOf(id, 'title');
+      const len = length(next);
+      if (len === 0) continue;
+      for (const k of ['b', 'i', '_', 's', 'c', 'h'] as const) next = removeAnnotation(next, 0, len, k);
+      commitText(id, 'title', next, len, { coalesce: false, action: 'textAnnotationActions.clearFormat' });
+    }
+    restoreRange(r);
+    return;
+  }
   if (r.start >= r.end) return;
   if (r.property === 'title' && suggestingIn(r.blockId)) return; // clearing formats can't be suggested in one mark
   let next = valueOf(r.blockId, r.property);

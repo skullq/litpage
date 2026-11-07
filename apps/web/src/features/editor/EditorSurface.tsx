@@ -28,7 +28,7 @@ import { commitText } from './textHandlers.ts';
 import { getSelectionOffsets } from './richTextDom.ts';
 import { overlayCount } from '../../components/overlay.tsx';
 import { InlineLayer } from './inline/InlineLayer.tsx';
-import { openTextMenuAtPoint } from './inline/TextActionMenu.tsx';
+import { openTextMenuAtPoint, openTextMenuForBlocks, useTextMenu } from './inline/TextActionMenu.tsx';
 import { valueOf } from './inline/format.ts';
 import { useBlockLinkScroll } from './blockLinks.ts';
 import { clearSidebarDrop, externalBlockDropTargets, moveBlocksToPage, sidebarPageAt, type ExternalBlockDrop } from './dragToSidebar.ts';
@@ -102,7 +102,7 @@ const NEST_DROP_X = 48;
 const NEST_INDENT = 26;
 
 // test hook for e2e/editor-*.mjs (dev builds only)
-if (import.meta.env.DEV) (window as any).__ncEditor = { records, useEditor, transactions };
+if (import.meta.env.DEV) (window as any).__ncEditor = { records, useEditor, transactions, useTextMenu };
 
 // undo/redo put the caret back where the edit happened
 transactions.onSelectionRestore = (sel) => {
@@ -322,7 +322,17 @@ export function EditorSurface({ pageId, readOnly, children, scroller }: { pageId
       const t = e.target as HTMLElement;
       if (t.closest('.lit-overlay-container, .lit-text-action-menu')) return;
       // right button: the context menu (onContextMenu) decides what gets selected
-      if (e.button === 2) return;
+      if (e.button === 2) {
+        // Prevent default browser focus change on right-click if clicked inside a multi-block selection,
+        // so focusin doesn't prematurely clear the block selection before onContextMenu fires.
+        const root = rootRef.current;
+        const blockEl = root && root.contains(t) ? (t.closest('.lit-selectable[data-block-id]') as HTMLElement | null) : null;
+        const clickedId = blockEl?.dataset.blockId;
+        if (s.selectedBlocks.length > 1 && clickedId && s.selectedBlocks.includes(clickedId)) {
+          e.preventDefault();
+        }
+        return;
+      }
       const root = rootRef.current;
       const blockEl = root && root.contains(t) ? (t.closest('.lit-selectable[data-block-id]') as HTMLElement | null) : null;
       const clickedId = blockEl?.dataset.blockId;
@@ -369,9 +379,15 @@ export function EditorSurface({ pageId, readOnly, children, scroller }: { pageId
     const root = rootRef.current;
     if (!root) return;
     const onFocusIn = (e: FocusEvent) => {
-      if (!(e.target as HTMLElement | null)?.closest?.('[data-content-editable-leaf]')) return;
+      const leaf = (e.target as HTMLElement | null)?.closest?.('[data-content-editable-leaf]') as HTMLElement | null;
+      if (!leaf) return;
       const s = useEditor.getState();
-      if (s.selectedBlocks.length && !s.blockMenuFor) s.clearBlockSelection();
+      const blockId = leaf.dataset.blockId;
+      // Do not clear multi-block selection if right-click or block menu is active for this block
+      if (s.selectedBlocks.length && !s.blockMenuFor) {
+        if (s.selectedBlocks.length > 1 && blockId && s.selectedBlocks.includes(blockId)) return;
+        s.clearBlockSelection();
+      }
     };
     root.addEventListener('focusin', onFocusIn);
     return () => root.removeEventListener('focusin', onFocusIn);
@@ -659,6 +675,23 @@ export function EditorSurface({ pageId, readOnly, children, scroller }: { pageId
     if (t.closest('input, textarea, .lit-overlay-container, .nc-page-header, .lit-collection-view-body, [data-native-context-menu]')) return;
     const root = rootRef.current;
     if (!root) return;
+    const sel = useEditor.getState().selectedBlocks;
+    let el = t.closest<HTMLElement>('.lit-selectable[data-block-id]');
+    while (el) {
+      const ty = getBlock(el.dataset.blockId)?.type;
+      if (ty && ty !== 'column' && ty !== 'column_list' && ty !== 'table_row') break;
+      el = el.parentElement?.closest<HTMLElement>('.lit-selectable[data-block-id]') ?? null;
+    }
+    const clickedBlockId = el?.dataset.blockId;
+
+    // When multiple blocks are selected and the user right-clicks inside any selected block (text, empty space, halo, etc.),
+    // keep the multi-block selection and open the text action menu right at the cursor.
+    if (sel.length > 1 && clickedBlockId && sel.includes(clickedBlockId)) {
+      e.preventDefault();
+      openTextMenuForBlocks(sel, e.clientX, e.clientY);
+      return;
+    }
+
     const leaf =
       t.closest<HTMLElement>('[data-content-editable-leaf="true"]') ??
       t.closest<HTMLElement>('.nc-code-box')?.querySelector<HTMLElement>('[data-content-editable-leaf="true"]') ??
@@ -669,15 +702,8 @@ export function EditorSurface({ pageId, readOnly, children, scroller }: { pageId
         return;
       }
     }
-    let el = t.closest<HTMLElement>('.lit-selectable[data-block-id]');
-    while (el) {
-      const ty = getBlock(el.dataset.blockId)?.type;
-      if (ty && ty !== 'column' && ty !== 'column_list' && ty !== 'table_row') break;
-      el = el.parentElement?.closest<HTMLElement>('.lit-selectable[data-block-id]') ?? null;
-    }
     if (!el || !root.contains(el)) return;
     const b = getBlock(el.dataset.blockId);
-    const sel = useEditor.getState().selectedBlocks;
     // text blocks: only their text opens a menu unless multiple blocks are selected
     if (!b || (TEXT_BLOCKS.has(b.type) && !(sel.length > 1 && sel.includes(b.id)))) return;
     e.preventDefault();

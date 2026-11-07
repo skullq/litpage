@@ -10,6 +10,7 @@ import { records } from '../../lib/store/records.ts';
 import { useUI } from '../../lib/store/ui.ts';
 import { formatDateTime } from '../../lib/format.ts';
 import { deleteBlocks, duplicateBlocks, pageIdOfBlock, turnInto, setOpen } from './commands.ts';
+import { copyBlocks, pasteBlocksFromMenu } from './clipboard.ts';
 import { useEditor } from './editorState.ts';
 import { copyPageLink } from '../page/pageActions.ts';
 import { openMoveToDialog } from '../page/MoveTo.tsx';
@@ -117,6 +118,9 @@ export function blockActionMenu(ids: string[]): MenuDef {
   const { words, chars } = selectionCounts(ids);
   const countable = ids.some((id) => { const x = getBlock(id); return !!x && (TEXT_BLOCKS.has(x.type) || x.type === 'page' || !!x.content?.length); });
   const actions: MenuItemDef[] = [
+    { label: 'Copy', icon: 'copy', shortcut: '⌘C', onSelect: () => copyBlocks(ids, null) },
+    { label: 'Cut', icon: 'scissors', shortcut: '⌘X', onSelect: () => { copyBlocks(ids, null); deleteBlocks(ids); } },
+    { label: 'Paste', icon: 'clipboardPaste', shortcut: '⌘V', onSelect: () => { void pasteBlocksFromMenu(ids); } },
     { label: 'Copy block URL', icon: 'link', shortcut: '⌘⌃L', onSelect: () => copyPageLink(pageIdOfBlock(b.id) ?? b.id, b.id) },
     blockDuplicateItem({ ids, block: b }) ?? { label: 'Duplicate', icon: 'duplicate', shortcut: '⌘D', onSelect: () => { duplicateBlocks(ids); } },
     { label: 'Move to', icon: 'arrowTurnUpRight', shortcut: '⌘⇧P', onSelect: () => openMoveToDialog(ids, document.querySelector(`[data-block-id="${b.id}"]`) as HTMLElement) },
@@ -156,8 +160,8 @@ export function blockActionMenu(ids: string[]): MenuDef {
     ...(!multi && developerMenuSection(b.id) ? [developerMenuSection(b.id)!] : []),
     {
       items: [
-        { label: 'Ask AI', icon: 'aiFace', shortcut: '⌘J', onSelect: () => window.dispatchEvent(new CustomEvent('nc:ask-ai', { detail: { blockId: b.id } })) },
-        { label: 'Skills', icon: 'paperBolt', submenu: () => blockSkillsMenu(b.id) },
+        { label: 'Ask AI', icon: 'aiFace', shortcut: '⌘J', onSelect: () => window.dispatchEvent(new CustomEvent('nc:ask-ai', { detail: { blockId: b.id, blockIds: [...ids] } })) },
+        { label: 'Skills', icon: 'paperBolt', submenu: () => blockSkillsMenu(b.id, ids) },
       ],
     },
   ];
@@ -250,8 +254,8 @@ export function openBlockMenuFor(blockId: string, el: HTMLElement) {
 }
 
 /** ⋮⋮ › Skills: built-in skills and the user's enabled page skills, plus "Manage skills". Each runs on the block via `nc:ask-ai`. */
-function blockSkillsMenu(blockId: string): MenuDef {
-  const ask = (detail: Record<string, unknown>) => () => { window.dispatchEvent(new CustomEvent('nc:ask-ai', { detail: { blockId, ...detail } })); };
+function blockSkillsMenu(blockId: string, blockIds: string[] = [blockId]): MenuDef {
+  const ask = (detail: Record<string, unknown>) => () => { window.dispatchEvent(new CustomEvent('nc:ask-ai', { detail: { blockId, blockIds: [...blockIds], ...detail } })); };
   const builtin = ['Improve writing', 'Proofread', 'Explain', 'Reformat', 'Summarize', 'Translate', 'Make shorter', 'Make longer'];
   const mine = useSkills.getState().enabled.filter((x) => !x.builtin && x.inPage);
   return {

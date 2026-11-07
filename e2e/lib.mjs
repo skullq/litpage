@@ -1,9 +1,14 @@
 // Shared helpers for E2E scripts: launch system Chrome headless at a 1384x853 desktop viewport.
+import fs from 'node:fs';
 import { chromium } from 'playwright-core';
 export const BASE = process.env.NC_BASE ?? 'http://127.0.0.1:5173';
-export const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+export const CHROME = process.env.CHROME_BIN || (
+  fs.existsSync('/root/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome')
+    ? '/root/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome'
+    : '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+);
 export async function launch({ headless = true } = {}) {
-  const browser = await chromium.launch({ executablePath: CHROME, headless });
+  const browser = await chromium.launch({ executablePath: CHROME, headless, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
   const context = await browser.newContext({ viewport: { width: 1384, height: 853 }, deviceScaleFactor: 2, locale: 'en-US' });
   const page = await context.newPage();
   page.on('pageerror', (e) => console.log('[pageerror]', e.message));
