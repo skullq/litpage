@@ -4,7 +4,8 @@
 export type SkillId =
   | 'continue' | 'summarize' | 'action_items' | 'translate' | 'explain' | 'improve' | 'proofread'
   | 'shorter' | 'longer' | 'tone' | 'simplify' | 'brainstorm' | 'outline' | 'email' | 'agenda'
-  | 'table' | 'flowchart' | 'reformat' | 'html' | 'custom';
+  | 'table' | 'flowchart' | 'reformat' | 'html' | 'custom'
+  | 'cisco_explain' | 'cisco_validate' | 'cisco_comment' | 'tech_doc';
 
 export interface SkillItem {
   id: SkillId;
@@ -37,6 +38,10 @@ export const SKILL: Record<SkillId, SkillItem> = {
   flowchart: { id: 'flowchart', label: 'Make a flowchart', icon: 'whaleTail', mode: 'generate', topic: 'Make a flowchart of…' },
   reformat: { id: 'reformat', label: 'Reformat', icon: 'textJustifyLeft', mode: 'edit', keywords: ['format', 'structure'] },
   html: { id: 'html', label: 'Build with AI', icon: 'code', mode: 'generate', topic: 'Describe what to build…' },
+  cisco_explain: { id: 'cisco_explain', label: 'Explain config', icon: 'code', mode: 'generate', keywords: ['config', 'network', 'cisco', 'explain config', '설정 설명'] },
+  cisco_validate: { id: 'cisco_validate', label: 'Validate config', icon: 'check', mode: 'generate', keywords: ['validate', 'cisco', 'check config', '검증', '설정 검증'] },
+  cisco_comment: { id: 'cisco_comment', label: 'Add config comments', icon: 'commentPencil', mode: 'edit', keywords: ['comment', 'cisco', 'annotation', '주석', '설정 주석'] },
+  tech_doc: { id: 'tech_doc', label: 'Generate technical doc', icon: 'paperBolt', mode: 'generate', keywords: ['doc', 'technical', 'runbook', 'spec', '기술 문서화'] },
   custom: { id: 'custom', label: 'Ask AI', icon: 'aiFace', mode: 'generate' },
 };
 
@@ -64,12 +69,14 @@ export const LANGUAGES = [
 export function writerSections(selection: boolean): { title: string; items: SkillId[] }[] {
   if (selection) {
     return [
+      { title: 'Technical & Config', items: ['cisco_explain', 'cisco_validate', 'cisco_comment', 'tech_doc'] },
       { title: 'Edit', items: ['improve', 'proofread', 'shorter', 'longer', 'tone', 'simplify', 'reformat'] },
       { title: 'Think', items: ['summarize', 'explain', 'action_items', 'translate', 'continue'] },
     ];
   }
   return [
     { title: 'Suggested', items: ['continue', 'summarize', 'action_items', 'translate'] },
+    { title: 'Technical', items: ['tech_doc', 'cisco_explain', 'cisco_validate'] },
     { title: 'Write', items: ['brainstorm', 'outline', 'email', 'agenda', 'table', 'flowchart'] },
   ];
 }

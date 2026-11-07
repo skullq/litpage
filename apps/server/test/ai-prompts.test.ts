@@ -250,6 +250,12 @@ describe('helpers', () => {
     expect(resolveSkill('Fix spelling & grammar')).toBe('proofread');
     expect(resolveSkill('Improve writing')).toBe('improve');
     expect(resolveSkill('summarize')).toBe('summarize');
+    expect(resolveSkill('Explain config')).toBe('cisco_explain');
+    expect(resolveSkill('Validate config')).toBe('cisco_validate');
+    expect(resolveSkill('Add config comments')).toBe('cisco_comment');
+    expect(resolveSkill('Generate technical doc')).toBe('tech_doc');
+    expect(resolveSkill('설정 설명')).toBe('cisco_explain');
+    expect(resolveSkill('cisco config 검증')).toBe('cisco_validate');
     expect(resolveSkill('nope')).toBeNull();
   });
 

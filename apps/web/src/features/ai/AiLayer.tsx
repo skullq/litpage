@@ -49,7 +49,10 @@ function blocksMarkdown(ids: string[], depth = 0): string {
       header: '# ', sub_header: '## ', sub_sub_header: '### ', header_4: '#### ', bulleted_list: '- ', numbered_list: '1. ', quote: '> ', toggle: '- ',
       to_do: (b.properties?.checked as any)?.[0]?.[0] === 'Yes' ? '- [x] ' : '- [ ] ',
     };
-    if (b.type === 'code') out.push('```', t, '```');
+    if (b.type === 'code') {
+      const lang = (b.properties?.language as any)?.[0]?.[0] ?? '';
+      out.push('```' + lang, t, '```');
+    }
     else if (b.type === 'divider') out.push('---');
     else out.push(pad + (prefix[b.type] ?? '') + t);
     if (b.content?.length && b.type !== 'page') out.push(blocksMarkdown(b.content, depth + 1));
@@ -185,7 +188,7 @@ function onAskAi(e: Event) {
     const multi = d.blockIds ?? (ed.selectedBlocks.includes(d.blockId) && ed.selectedBlocks.length > 1 ? [...ed.selectedBlocks] : undefined);
     const ranged = d.start !== undefined && d.end !== undefined && d.end > d.start;
     if (ranged) askAiAtBlock(d.blockId, { start: d.start, end: d.end, property: d.property, skill, prompt: d.prompt, language: d.language });
-    else if (multi?.length) askAiAtBlock(d.blockId, { blockIds: multi, skill, language: d.language }); // several selected blocks
+    else if (multi?.length) askAiAtBlock(d.blockId, { blockIds: multi, skill, prompt: d.prompt, language: d.language }); // several selected blocks
     else if (d.prompt) askAiAtBlock(d.blockId, { prompt: d.prompt }); // button block action
     else if (isEmptyText(d.blockId)) askAiAtBlock(d.blockId); // Space / slash on an empty line
     else if ((d.empty === false || (d.start !== undefined && !d.mode)) && !skill) askAiAtBlock(d.blockId); // caret in a line with text → write below

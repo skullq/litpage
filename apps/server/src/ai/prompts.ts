@@ -16,7 +16,8 @@ import { TOOL_DEFS, toolParams, validateInput } from './tools/defs.ts';
 export type SkillId =
   | 'continue' | 'summarize' | 'action_items' | 'translate' | 'explain' | 'improve' | 'proofread'
   | 'shorter' | 'longer' | 'tone' | 'simplify' | 'brainstorm' | 'outline' | 'email' | 'agenda'
-  | 'table' | 'flowchart' | 'reformat' | 'html' | 'custom';
+  | 'table' | 'flowchart' | 'reformat' | 'html' | 'custom'
+  | 'cisco_explain' | 'cisco_validate' | 'cisco_comment' | 'tech_doc';
 
 export interface SkillDef {
   id: SkillId;
@@ -47,6 +48,10 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   flowchart: { id: 'flowchart', label: 'Draw a flowchart', mode: 'generate', needsPrompt: true },
   reformat: { id: 'reformat', label: 'Reformat', mode: 'edit' },
   html: { id: 'html', label: 'Generate with AI', mode: 'generate', needsPrompt: true },
+  cisco_explain: { id: 'cisco_explain', label: 'Explain config', mode: 'generate' },
+  cisco_validate: { id: 'cisco_validate', label: 'Validate config', mode: 'generate' },
+  cisco_comment: { id: 'cisco_comment', label: 'Add config comments', mode: 'edit' },
+  tech_doc: { id: 'tech_doc', label: 'Generate technical doc', mode: 'generate' },
   custom: { id: 'custom', label: 'Ask AI', mode: 'generate' },
 };
 
@@ -58,6 +63,10 @@ export const SKILL_ALIASES: Record<string, SkillId> = {
   'make longer': 'longer', 'change tone': 'tone', 'simplify language': 'simplify', 'brainstorm ideas': 'brainstorm',
   'sketch an outline': 'outline', 'write an email': 'email', 'write an email draft': 'email', 'plan a meeting agenda': 'agenda', 'build a table': 'table', 'make a table': 'table',
   'draw a flowchart': 'flowchart', 'make a flowchart': 'flowchart', reformat: 'reformat',
+  'explain config': 'cisco_explain', 'explain cisco config': 'cisco_explain', '설정 설명': 'cisco_explain',
+  'validate config': 'cisco_validate', 'validate cisco config': 'cisco_validate', 'cisco config 검증': 'cisco_validate', '설정 검증': 'cisco_validate',
+  'add config comments': 'cisco_comment', 'add comments': 'cisco_comment', '설정 주석 추가': 'cisco_comment',
+  'generate technical doc': 'tech_doc', 'technical doc': 'tech_doc', '기술 문서화': 'tech_doc', 'runbook': 'tech_doc',
 };
 
 export function resolveSkill(nameOrId: string | undefined | null): SkillId | null {
@@ -555,6 +564,14 @@ export function writerTask(input: WriterInput): string {
       return `Make a flowchart of: ${topic || 'the process described on the page'}. Output a single fenced code block with language "mermaid" containing a flowchart.`;
     case 'html':
       return `Create ${topic || 'an interactive page about the page'} as one self-contained HTML document: inline CSS and JavaScript only, no external scripts, fonts, images or network requests, responsive, readable in light and dark backgrounds. Use the page as the source of facts. This task overrides the Markdown rules: output only the HTML document, starting with <!DOCTYPE html>.`;
+    case 'cisco_explain':
+      return `Explain ${target} step-by-step in clear, professional technical terms. Break down key sections (interfaces, IP addressing, routing protocols, VLANs, ACLs, policies), describe their operational behavior and effects, and highlight any prerequisites or dependencies.`;
+    case 'cisco_validate':
+      return `Analyze and validate ${target} for Cisco and network best practices. Check for: 1) Syntax errors or incomplete commands (e.g. missing 'no shutdown', incorrect subnet masks), 2) Security vulnerabilities (e.g. weak/plain text passwords, open VTY lines, missing access lists), 3) Routing or VLAN misconfigurations (e.g. duplicate IPs, mismatched VLAN IDs or MTUs). Present findings clearly with an issue severity breakdown and exact recommended remediation commands.`;
+    case 'cisco_comment':
+      return `Annotate ${target} by adding concise, descriptive comments directly above or beside key commands using standard Cisco IOS comment syntax ("!"). Explain the purpose of interfaces, IP configurations, route targets, and access control entries. Preserve all original configuration commands verbatim and only insert informative comments.`;
+    case 'tech_doc':
+      return `Convert ${target} into a comprehensive, professional technical specification and operational runbook. Include: 1) Objective & Architecture Overview, 2) Configuration Breakdown (with Markdown tables for interfaces, IPs, and VLANs), 3) Step-by-Step Implementation Guide, 4) Verification & Troubleshooting Commands ('show ...'), and 5) Rollback / Backout Procedure.`;
     case 'custom':
     default:
       return topic || 'Help with the page.';
