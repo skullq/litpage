@@ -121,7 +121,7 @@ function saveUserSettings(userId: string, spaceId: string, patch: Record<string,
 
 function skillJson(s: ReturnType<typeof listSkills>['enabled'][number]) {
   return {
-    id: s.id, pageId: s.pageId, name: s.name, description: s.description, builtin: s.builtin, enabled: s.enabled, mine: s.mine, automatic: s.automatic,
+    id: s.id, pageId: s.pageId, name: s.name, description: s.description, instructions: s.instructions, builtin: s.builtin, enabled: s.enabled, mine: s.mine, automatic: s.automatic,
     inChat: s.inChat, inPage: s.inPage, icon: s.icon ?? null, updatedTime: s.updatedTime ?? null,
     createdBy: s.createdBy ? getRecord<UserRecord>('lit_user', s.createdBy)?.name ?? '' : '',
   };
@@ -468,6 +468,9 @@ export const handlers = {
     const sv = spaceViewOf(userId, spaceId);
     if (!sv) throw new ApiError('Not allowed', 403);
     const title = typeof body?.title === 'string' && body.title.trim() ? body.title.trim().slice(0, 120) : 'New skill';
+    const description = typeof body?.description === 'string' && body.description.trim() ? body.description.trim().slice(0, 500) : 'Describe when Litpage AI should use this skill.';
+    const instructions = typeof body?.instructions === 'string' && body.instructions.trim() ? body.instructions.trim().slice(0, 10000) : 'Write the steps or instructions Litpage AI should follow.';
+    const icon = typeof body?.icon === 'string' && body.icon.trim() ? body.icon.trim() : '🧠';
     return guarded(() => {
       const id = newId();
       const p1 = newId();
@@ -475,15 +478,130 @@ export const handlers = {
       const now = Date.now();
       const meta = { space_id: spaceId, alive: true, created_time: now, created_by_id: userId, created_by_table: 'lit_user', last_edited_time: now, last_edited_by_id: userId, last_edited_by_table: 'lit_user' };
       const ops = [
-        mk.set({ table: 'block', id, spaceId }, [], { id, type: 'page', properties: { title: [[title]] }, format: { page_icon: '🧠', ai_skill: { enabled: true } }, content: [p1, p2], parent_id: spaceId, parent_table: 'space', permissions: [{ type: 'user_permission', role: 'editor', user_id: userId }], ...meta }),
-        mk.set({ table: 'block', id: p1, spaceId }, [], { id: p1, type: 'text', properties: { title: [['Describe when Litpage AI should use this skill.']] }, parent_id: id, parent_table: 'block', ...meta }),
-        mk.set({ table: 'block', id: p2, spaceId }, [], { id: p2, type: 'text', properties: { title: [['Write the steps or instructions Litpage AI should follow.']] }, parent_id: id, parent_table: 'block', ...meta }),
+        mk.set({ table: 'block', id, spaceId }, [], { id, type: 'page', properties: { title: [[title]] }, format: { page_icon: icon, ai_skill: { enabled: true, description } }, content: [p1, p2], parent_id: spaceId, parent_table: 'space', permissions: [{ type: 'user_permission', role: 'editor', user_id: userId }], ...meta }),
+        mk.set({ table: 'block', id: p1, spaceId }, [], { id: p1, type: 'text', properties: { title: [[description]] }, parent_id: id, parent_table: 'block', ...meta }),
+        mk.set({ table: 'block', id: p2, spaceId }, [], { id: p2, type: 'text', properties: { title: [[instructions]] }, parent_id: id, parent_table: 'block', ...meta }),
         mk.listBefore({ table: 'space_view', id: sv.id, spaceId }, ['private_pages'], id),
       ];
       applyTransactions(userId, [{ id: newId(), spaceId, debug: { userAction: 'ai.skill.create' }, operations: ops }], undefined, { client: true });
       const s = settingsOf(userId);
       saveUserSettings(userId, spaceId, { ai_skills_enabled: [...new Set([...(Array.isArray(s.ai_skills_enabled) ? (s.ai_skills_enabled as string[]) : []), id])] });
       return { pageId: id };
+    });
+  },
+
+  async aiUpdateSkill(ctx: Ctx, body: any) {
+    const userId = uid(ctx);
+    const spaceId = member(body?.spaceId, userId);
+    let skillId = String(body?.skillId ?? '');
+    const title = typeof body?.name === 'string' ? body.name.trim().slice(0, 120) : undefined;
+    const description = typeof body?.description === 'string' ? body.description.trim().slice(0, 500) : undefined;
+    const instructions = typeof body?.instructions === 'string' ? body.instructions.trim().slice(0, 10000) : undefined;
+    const icon = typeof body?.icon === 'string' ? body.icon.trim() : undefined;
+
+    // If updating a builtin skill, customize it first to create the user's editable copy
+    if (skillId.startsWith('builtin:')) {
+      const cust = await (handlers as any).aiCustomizeBuiltinSkill(ctx, { spaceId, skill: skillId });
+      skillId = cust.pageId;
+    }
+
+    const page = getRecord<BlockRecord>('block', skillId);
+    if (!page || page.alive === false) throw new ApiError('Skill not found', 404);
+    if (!roleAtLeast(blockRole(page.id, userId), 'read_and_write')) throw new ApiError('You need edit access to update this skill.', 403);
+
+    return guarded(() => {
+      const now = Date.now();
+      const ops: any[] = [];
+      const formatUpdates: Record<string, unknown> = {};
+      if (icon !== undefined) formatUpdates.page_icon = icon;
+      const curSkill = (page.format as any)?.ai_skill ?? {};
+      if (description !== undefined) {
+        formatUpdates.ai_skill = { ...curSkill, description };
+      }
+      if (Object.keys(formatUpdates).length > 0) {
+        ops.push(mk.update({ table: 'block', id: page.id, spaceId }, ['format'], formatUpdates));
+      }
+      if (title !== undefined) {
+        ops.push(mk.set({ table: 'block', id: page.id, spaceId }, ['properties', 'title'], [[title]]));
+      }
+      ops.push(mk.update({ table: 'block', id: page.id, spaceId }, [], { last_edited_time: now, last_edited_by_id: userId, last_edited_by_table: 'lit_user' }));
+
+      // Update instructions / content blocks if provided
+      if (instructions !== undefined || description !== undefined) {
+        const contentIds = page.content ?? [];
+        if (contentIds.length >= 2) {
+          if (description !== undefined) {
+            ops.push(mk.set({ table: 'block', id: contentIds[0], spaceId }, ['properties', 'title'], [[description]]));
+          }
+          if (instructions !== undefined) {
+            ops.push(mk.set({ table: 'block', id: contentIds[1], spaceId }, ['properties', 'title'], [[instructions]]));
+          }
+        } else if (contentIds.length === 1) {
+          if (description !== undefined) {
+            ops.push(mk.set({ table: 'block', id: contentIds[0], spaceId }, ['properties', 'title'], [[description]]));
+          }
+          if (instructions !== undefined) {
+            const p2 = newId();
+            const meta = { space_id: spaceId, alive: true, created_time: now, created_by_id: userId, created_by_table: 'lit_user', last_edited_time: now, last_edited_by_id: userId, last_edited_by_table: 'lit_user' };
+            ops.push(mk.set({ table: 'block', id: p2, spaceId }, [], { id: p2, type: 'text', properties: { title: [[instructions]] }, parent_id: page.id, parent_table: 'block', ...meta }));
+            ops.push(mk.listAfter({ table: 'block', id: page.id, spaceId }, ['content'], p2, contentIds[0]));
+          }
+        } else {
+          const p1 = newId();
+          const p2 = newId();
+          const meta = { space_id: spaceId, alive: true, created_time: now, created_by_id: userId, created_by_table: 'lit_user', last_edited_time: now, last_edited_by_id: userId, last_edited_by_table: 'lit_user' };
+          ops.push(mk.set({ table: 'block', id: p1, spaceId }, [], { id: p1, type: 'text', properties: { title: [[description || '']] }, parent_id: page.id, parent_table: 'block', ...meta }));
+          ops.push(mk.set({ table: 'block', id: p2, spaceId }, [], { id: p2, type: 'text', properties: { title: [[instructions || '']] }, parent_id: page.id, parent_table: 'block', ...meta }));
+          ops.push(mk.update({ table: 'block', id: page.id, spaceId }, ['content'], [p1, p2]));
+        }
+      }
+
+      applyTransactions(userId, [{ id: newId(), spaceId, debug: { userAction: 'ai.skill.update' }, operations: ops }], undefined, { client: true });
+      return { ok: true, skillId: page.id };
+    });
+  },
+
+  async aiDeleteSkill(ctx: Ctx, body: any) {
+    const userId = uid(ctx);
+    const spaceId = member(body?.spaceId, userId);
+    const skillId = String(body?.skillId ?? '');
+
+    // If it's a builtin skill, disabling it hides it
+    if (skillId.startsWith('builtin:')) {
+      const s = settingsOf(userId);
+      const off = new Set(Array.isArray(s.ai_skills_disabled) ? (s.ai_skills_disabled as string[]) : []);
+      off.add(skillId.slice(8));
+      saveUserSettings(userId, spaceId, { ai_skills_disabled: [...off] });
+      return { ok: true };
+    }
+
+    const page = getRecord<BlockRecord>('block', skillId);
+    if (!page || page.alive === false) throw new ApiError('Skill not found', 404);
+    if (!roleAtLeast(blockRole(page.id, userId), 'read_and_write')) throw new ApiError('You need edit access to delete this skill.', 403);
+
+    return guarded(() => {
+      const builtinOf = (page.format as any)?.ai_skill?.builtin_of;
+      if (builtinOf) {
+        const s = settingsOf(userId);
+        const off = new Set(Array.isArray(s.ai_skills_disabled) ? (s.ai_skills_disabled as string[]) : []);
+        off.delete(builtinOf);
+        saveUserSettings(userId, spaceId, { ai_skills_disabled: [...off] });
+      }
+
+      const s = settingsOf(userId);
+      const enabledList = new Set(Array.isArray(s.ai_skills_enabled) ? (s.ai_skills_enabled as string[]) : []);
+      enabledList.delete(skillId);
+      saveUserSettings(userId, spaceId, { ai_skills_enabled: [...enabledList] });
+
+      const now = Date.now();
+      const ops: any[] = [
+        mk.update({ table: 'block', id: page.id, spaceId }, [], { alive: false, last_edited_time: now, last_edited_by_id: userId, last_edited_by_table: 'lit_user' }),
+      ];
+      for (const cid of page.content ?? []) {
+        ops.push(mk.update({ table: 'block', id: cid, spaceId }, [], { alive: false, last_edited_time: now, last_edited_by_id: userId, last_edited_by_table: 'lit_user' }));
+      }
+      applyTransactions(userId, [{ id: newId(), spaceId, debug: { userAction: 'ai.skill.delete' }, operations: ops }], undefined, { client: true });
+      return { ok: true };
     });
   },
 

@@ -27,7 +27,7 @@ import { filterSummary, isTabWithTable, openFilterEditor, openFilterMenu, openPr
 import { useLibraryRows } from './library/data.ts';
 import { LibraryTable } from './library/LibraryTable.tsx';
 import { TeamspacesTab } from './library/TeamspacesTab.tsx';
-import { createNewSkill, SkillsTab } from '../ai/SkillsLibrary.tsx';
+import { createNewSkill, openNewSkillModal, SkillsTab } from '../ai/SkillsLibrary.tsx';
 import { AgentDirectory } from '../agents/AgentDirectory.tsx';
 import { openNewAgentModal } from '../agents/NewAgentModal.tsx';
 
@@ -91,7 +91,7 @@ export function LibraryPage() {
       case 'meetings':
         return { label: t('lp.home.start_ai_meeting_notes', 'Start AI meeting notes'), run: () => createMeetingNote() };
       case 'skills':
-        return { label: t('lp.home.new_skill', 'New skill'), run: () => void createNewSkill() };
+        return { label: t('lp.home.new_skill', 'New skill'), run: () => void openNewSkillModal() };
       case 'agents':
         return { label: t('lp.home.new_agent', 'New agent'), run: () => void openNewAgentModal() };
       default:
@@ -360,8 +360,8 @@ export function MeetingNotesEmpty() {
 
 function SkillsEmpty() {
   const view = useLibraryView('skills');
-  const seg = view.skillsTab ?? 'enabled';
-  const set = (v: 'enabled' | 'discover') => useLibraryViews.getState().update('skills', (x) => { x.skillsTab = v; });
+  const seg = view.skillsTab ?? 'all';
+  const set = (v: 'all' | 'enabled' | 'discover') => useLibraryViews.getState().update('skills', (x) => { x.skillsTab = v; });
   // the skills list itself lives in features/ai: enabled / discover skills, New skill, Enable for me
   return <SkillsTab seg={seg} setSeg={set} />;
 }

@@ -129,7 +129,7 @@ export interface LibView {
   filters: LibFilter[];
   group: ColKey | null;
   includeArchived?: boolean;
-  skillsTab?: 'enabled' | 'discover';
+  skillsTab?: 'all' | 'enabled' | 'discover';
 }
 
 export function defaultView(tab: LibTab): LibView {
@@ -143,7 +143,7 @@ export function defaultView(tab: LibTab): LibView {
     filters: [],
     group: null,
     includeArchived: false,
-    skillsTab: 'enabled',
+    skillsTab: 'all',
   };
 }
 

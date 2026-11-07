@@ -10,6 +10,7 @@ export interface SkillInfo {
   pageId: string | null;
   name: string;
   description: string;
+  instructions?: string;
   builtin: boolean;
   enabled: boolean;
   mine: boolean;
@@ -77,6 +78,27 @@ export async function setSkillAutomatic(skill: SkillInfo, automatic: boolean) {
   const spaceId = useSession.getState().spaceId;
   await api('aiSetSkillAutomatic', { spaceId, skillId: skill.id, automatic });
   await useSkills.getState().load(true);
+}
+
+export async function createSkill(params: { title: string; description?: string; instructions?: string; icon?: string }) {
+  const spaceId = useSession.getState().spaceId;
+  const res = await api<{ pageId: string }>('aiCreateSkill', { spaceId, ...params });
+  await useSkills.getState().load(true);
+  return res;
+}
+
+export async function updateSkill(params: { skillId: string; name?: string; description?: string; instructions?: string; icon?: string }) {
+  const spaceId = useSession.getState().spaceId;
+  const res = await api<{ ok: boolean; skillId: string }>('aiUpdateSkill', { spaceId, ...params });
+  await useSkills.getState().load(true);
+  return res;
+}
+
+export async function deleteSkill(skillId: string) {
+  const spaceId = useSession.getState().spaceId;
+  const res = await api<{ ok: boolean }>('aiDeleteSkill', { spaceId, skillId });
+  await useSkills.getState().load(true);
+  return res;
 }
 
 
