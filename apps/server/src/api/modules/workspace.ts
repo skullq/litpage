@@ -14,7 +14,7 @@ import { formConfigOf } from '@nc/shared/form/index.ts';
 import { addMember, saveRecord } from '../../seed.ts';
 import { realtime } from '../../realtime.ts';
 import { audit } from '../../audit.ts';
-import { assertWorkspacePolicy } from '../../policy.ts';
+import { assertWorkspacePolicy, isCollaborationEnabled } from '../../policy.ts';
 import { registerJobHandler, scheduleJob } from '../../scheduler.ts';
 import { notifyWorkspaceRequest, notifyWorkspaceRequestResolved } from '../../notify.ts';
 import { hit, RateLimitError } from '../../ratelimit.ts';
@@ -241,6 +241,7 @@ export const handlers: Record<string, Handler> = {
     const uid = requireUser(ctx);
     const space = spaceOrThrow(spaceId);
     requireAdmin(space, uid);
+    if (!isCollaborationEnabled(space)) throw new ApiError('Collaboration is disabled for this workspace.', 403);
     const settings = { ...(space.settings ?? {}), invite_link_enabled: !!enabled };
     if ((space.settings as any)?.invite_link_enabled !== false !== !!enabled) audit('invite_link_toggled', { spaceId: space.id, actorId: uid, targetId: space.id, ip: ctx.ip, data: { enabled: !!enabled } });
     return { recordMap: commit(uid, [{ table: 'space', record: { ...space, settings, invite_link_code: space.invite_link_code || randomBytes(15).toString('base64url') } }]) };
@@ -250,6 +251,7 @@ export const handlers: Record<string, Handler> = {
     const row = db.prepare(`SELECT data FROM records WHERE tbl = 'space' AND json_extract(data, '$.invite_link_code') = ?`).get(String(code ?? '')) as { data: string } | undefined;
     if (!row) throw new ApiError('This invite link is invalid or has been reset.', 404);
     const space = JSON.parse(row.data) as SpaceRecord;
+    if (!isCollaborationEnabled(space)) throw new ApiError('Collaboration is disabled for this workspace.', 403);
     if ((space.settings as any)?.invite_link_enabled === false) throw new ApiError('This invite link has been disabled.', 403);
     if (!isSpaceMember(space, uid)) {
       addMember(space.id, uid, 'editor');

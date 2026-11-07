@@ -5,7 +5,7 @@
 // shows Reset + "Save for everyone" (people who can't change the view — Can view / comment / edit content, locked
 // databases — only get Reset: "Changes to filters & sorts in this view are only visible to you.").
 import { useSyncExternalStore } from 'react';
-import type { BlockRecord, CollectionRecord, CollectionViewRecord } from '@nc/shared/records.ts';
+import type { BlockRecord, CollectionRecord, CollectionViewRecord, SpaceRecord } from '@nc/shared/records.ts';
 import type { FilterGroup, FilterNode, PropertyFilterLeaf, SortSpec } from '@nc/shared/database/index.ts';
 import { newId } from '@nc/shared/ids.ts';
 import { records } from '../../lib/store/records.ts';
@@ -195,6 +195,10 @@ export function canSaveForEveryone(view: CollectionViewRecord | undefined): bool
 /** Filter / sort edits of this view stay personal (shared database, or the person can't change the view). */
 export function personalMode(view: CollectionViewRecord | undefined): boolean {
   if (!view) return false;
+  const block = records.get<BlockRecord>('block', view.parent_id);
+  const spaceId = block?.space_id ?? useSession.getState().spaceId;
+  const space = spaceId ? records.get<SpaceRecord>('space', spaceId) : undefined;
+  if ((space?.settings as any)?.collaboration_enabled === false) return false;
   // dashboards: in View mode filters / sorts (global and in widgets) are yours until "Save for
   // everybody"; in Edit mode editors change the dashboard for everyone
   const dash = dashboardOf(view);

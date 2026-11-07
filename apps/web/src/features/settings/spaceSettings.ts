@@ -30,6 +30,10 @@ export function spaceSetting<T>(space: SpaceRecord | undefined, key: string, fal
   return (v === undefined || v === null ? fallback : v) as T;
 }
 
+export function isCollaborationEnabled(space: SpaceRecord | undefined): boolean {
+  return spaceSetting<boolean>(space, 'collaboration_enabled', true) !== false;
+}
+
 /** Server-validated workspace mutation; merges the returned recordMap into the store right away. */
 export async function spaceApi<T extends Record<string, any> = Record<string, any>>(name: string, body: Record<string, unknown>): Promise<T> {
   const res = await api<T>(name, body);

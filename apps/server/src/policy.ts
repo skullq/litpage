@@ -48,6 +48,10 @@ export function spaceSetting<T>(space: SpaceRecord | undefined, key: string, fal
   return (v === undefined || v === null ? fallback : v) as T;
 }
 
+export function isCollaborationEnabled(space: SpaceRecord | undefined): boolean {
+  return spaceSetting<boolean>(space, 'collaboration_enabled', true) !== false;
+}
+
 export function spaceRoleOf(space: SpaceRecord | undefined, userId: string | null | undefined): string {
   if (!space || !userId) return 'none';
   return (space.permissions ?? []).find((p) => p.type === 'user_permission' && p.user_id === userId)?.role ?? 'none';
@@ -131,6 +135,11 @@ export interface PolicyOptions {
  */
 export function policyProblem(space: SpaceRecord | undefined, action: PolicyAction, userId: string | null, opts: PolicyOptions = {}): string | null {
   if (!space) return null;
+  if (!isCollaborationEnabled(space)) {
+    if (['invite_guest', 'request_guest', 'access_request', 'member_request', 'external_member_request', 'guest_member_request', 'create_teamspace', 'create_group'].includes(action)) {
+      return 'Collaboration is disabled for this workspace.';
+    }
+  }
   const p = workspacePolicy(space);
   const team = opts.teamId ? (opts.lookup ?? ((t, id) => getRecord(t, id)))('team', opts.teamId) as TeamRecord | undefined : teamOfBlock(opts.pageId, opts.lookup);
   const admin = !!userId && isSpaceAdmin(space, userId);
@@ -200,6 +209,11 @@ export function permissionChangeProblem(
   lookup?: PolicyOptions['lookup'],
 ): string | null {
   if (!space || !Array.isArray(after)) return null;
+  if (!isCollaborationEnabled(space)) {
+    const hasOtherUser = after.some((p) => p?.type === 'user_permission' && p.role !== 'none' && p.user_id && p.user_id !== userId);
+    const hasSpacePerm = after.some((p) => p?.type === 'space_permission' && p.role !== 'none');
+    if (hasOtherUser || hasSpacePerm) return 'Sharing and collaboration are disabled for this workspace.';
+  }
   const prevPublic = (before ?? []).filter((p) => p?.type === 'public_permission' && p.role !== 'none');
   const nextPublic = after.filter((p) => p?.type === 'public_permission' && p.role !== 'none');
   const widened = nextPublic.some((p) => {

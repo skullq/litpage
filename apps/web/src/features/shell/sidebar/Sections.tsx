@@ -8,6 +8,7 @@ import { toPlainText } from '@nc/shared/richtext.ts';
 import { isArchivedRecord } from '@nc/shared/archive.ts';
 import { isSpaceAdmin, teamAccessType, teamMembership } from '@nc/shared/permissions.ts';
 import { useCurrentSpace, useCurrentSpaceView, useRecords, useTableVersion } from '../../../lib/hooks.ts';
+import { isCollaborationEnabled } from '../../settings/spaceSettings.ts';
 import { records } from '../../../lib/store/records.ts';
 import { useSession } from '../../../lib/store/session.ts';
 import { useUI } from '../../../lib/store/ui.ts';
@@ -263,6 +264,11 @@ function ViewAllRowFor({ section }: { section: SidebarSection }) {
 
 // ---------------- section bodies ----------------
 export function SectionView({ section }: { section: SidebarSection }) {
+  const space = useCurrentSpace();
+  const collab = isCollaborationEnabled(space);
+  if (!collab && (section.type === 'teamspaces' || section.type === 'teamspace' || section.type === 'shared')) {
+    return null;
+  }
   switch (section.type) {
     case 'upcoming_events':
       return <UpcomingEventsSection section={section} />;

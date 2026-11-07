@@ -17,7 +17,7 @@ import { getLocale, t } from '../../shell/i18n.ts';
 import { Button, Dropdown, Group, IdRow, Pills, Row, SectionPage, Switch, Upsell, UserAvatar, confirmDialog, msg, openSubDialog, rich } from '../ui.tsx';
 import { saveSpaceViewSetting } from '../userSettings.ts';
 import { useSettingsFocus } from '../searchIndex.ts';
-import { canCreateTeamspace, planAtLeast, policyTooltip, retentionDurationLabel, saveSpace, saveSpaceSettings, spaceApi, spaceSetting, useSpaceAccess, type PlanType } from '../spaceSettings.ts';
+import { canCreateTeamspace, isCollaborationEnabled, planAtLeast, policyTooltip, retentionDurationLabel, saveSpace, saveSpaceSettings, spaceApi, spaceSetting, useSpaceAccess, type PlanType } from '../spaceSettings.ts';
 import { purgeRetentionDays, trashRetentionDays } from '@nc/shared/retention.ts';
 
 const NAME_MAX = 65;
@@ -81,7 +81,8 @@ export function GeneralSection() {
   return (
     <SectionPage title={t('lp.settings.general', 'General')} subtitle={t('lp.settings.edit_the_workspace_s_name_domains', 'Edit the workspace’s name, domains, and other details')}>
       {owner && <WorkspaceBasics space={space} />}
-      {owner && <AllowedDomains space={space} owner={owner} />}
+      {owner && <CollaborationGroup space={space} />}
+      {owner && isCollaborationEnabled(space) && <AllowedDomains space={space} owner={owner} />}
       <Group title={t('lp.settings.sidebar', 'Sidebar')} help={t('lp.settings.these_toggles_affect_only_you_in', 'These toggles affect only you in this workspace')}>
         <Row
           id="show-lit-apps"
@@ -121,6 +122,33 @@ export function GeneralSection() {
         <IdRow label={t('lp.settings.workspace_id', 'Workspace ID')} id={space.id} />
       </Group>
     </SectionPage>
+  );
+}
+
+function CollaborationGroup({ space }: { space: SpaceRecord }) {
+  const enabled = isCollaborationEnabled(space);
+  return (
+    <Group
+      title={t('lp.settings.collaboration_mode', 'Collaboration mode')}
+      help={t('lp.settings.collaboration_mode_help', 'Control whether this workspace functions in multi-user collaboration mode or single-user personal mode')}
+    >
+      <Row
+        id="collaboration-enabled"
+        label={t('lp.settings.enable_collaboration', 'Enable collaboration')}
+        description={
+          enabled
+            ? t('lp.settings.collaboration_enabled_desc', 'Team collaboration is active: member invitations, teamspaces, page sharing, presence avatars, comments, and database person assignments are available.')
+            : t('lp.settings.collaboration_disabled_desc', 'Single-user personal mode: collaboration menus (People, Teams, Identity), page sharing, presence, comments, and database person fields are hidden. Database view changes save directly.')
+        }
+        control={
+          <Switch
+            label={t('lp.settings.enable_collaboration', 'Enable collaboration')}
+            checked={enabled}
+            onChange={(v) => saveSpaceSettings(space.id, { collaboration_enabled: v })}
+          />
+        }
+      />
+    </Group>
   );
 }
 

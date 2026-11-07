@@ -26,7 +26,7 @@ import type { RichText } from '@nc/shared/richtext.ts';
 const SUGGESTABLE_TYPES = new Set(['text', 'to_do', 'header', 'sub_header', 'sub_sub_header', 'header_4', 'bulleted_list', 'numbered_list']);
 import { canAddDatabaseRows, checkCreatedRecord, databaseUpdateDecision } from './dbaccess.ts';
 import {
-  copyPolicyProblem, createdSharingProblem, memberInviteAllowed, policyProblem, policyUpdateProblem, restrictedTeamAddProblem, spaceSettingsProblem,
+  copyPolicyProblem, createdSharingProblem, isCollaborationEnabled, memberInviteAllowed, policyProblem, policyUpdateProblem, restrictedTeamAddProblem, spaceSetting, spaceSettingsProblem,
   teamOverrideProblem, teamSidebarProblem,
 } from './policy.ts';
 import { SCHEMA_SIZE_LIMIT, schemaSize } from '@nc/shared/formula/schemaLimit.ts';
@@ -705,6 +705,15 @@ export class TxGuard {
       if (ch.table === 'collection' && r.schema && r.schema !== prev?.schema) {
         const size = schemaSize(r.schema);
         if (size > SCHEMA_SIZE_LIMIT && size > schemaSize(prev?.schema)) return `The database’s properties are too large (${key})`;
+        const space = this.get<SpaceRecord>('space', r.space_id);
+        if (space && !isCollaborationEnabled(space)) {
+          const prevSchema = (prev?.schema ?? {}) as Record<string, any>;
+          for (const [pid, prop] of Object.entries((r.schema ?? {}) as Record<string, any>)) {
+            if (prop?.type === 'person' && prevSchema[pid]?.type !== 'person') {
+              return 'Person properties cannot be added when collaboration is disabled.';
+            }
+          }
+        }
       }
       // new entries in pointer lists must be records the user can read (or children of this record)
       for (const [field, target] of Object.entries(LISTS[ch.table] ?? {})) {

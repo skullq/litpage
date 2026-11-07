@@ -432,8 +432,11 @@ function FormView(props: ViewProps) {
 
   const addQuestion = (e: React.MouseEvent<HTMLElement>) => openAddQuestionMenu(e.currentTarget, view.id, collection.id, setSelected);
 
+  const space = records.get<SpaceRecord>('space', collection.space_id);
+  const collab = (space?.settings as any)?.collaboration_enabled !== false;
   const perm: FormPermission = cfg.permission ?? 'space';
-  const banner = perm === 'public' ? 'This form is open. Anyone with the link can send a submission.'
+  const banner = !collab ? 'Collaboration is turned off in this workspace.'
+    : perm === 'public' ? 'This form is open. Anyone with the link can send a submission.'
     : perm === 'closed' ? 'This form is closed. New submissions are blocked.' : `Only ${spaceName()} members can submit this form.`;
 
   return (
@@ -457,7 +460,7 @@ function FormView(props: ViewProps) {
         </div>
         <div className="nc-form-b-banner" data-testid="form-access-banner">
           <span className="nc-form-b-banner-text"><Icon name={perm === 'public' ? 'ncGlobe' : 'ncLock'} size={16} />{banner}</span>
-          {!readOnly && <div role="button" className="nc-form-b-banner-btn" onClick={(e) => openShareMenu(e.currentTarget, view.id, collection.id)}>Change</div>}
+          {!readOnly && collab && <div role="button" className="nc-form-b-banner-btn" onClick={(e) => openShareMenu(e.currentTarget, view.id, collection.id)}>Change</div>}
         </div>
         {cfg.questions.map((q, qi) => {
           const prop = schema[q.config.propertyId];
@@ -568,10 +571,12 @@ function openShareMenu(anchor: HTMLElement, viewId: string, collectionId: string
 }
 
 function FormToolbar({ view, collection, readOnly }: ToolbarExtraProps) {
+  const space = records.get<SpaceRecord>('space', collection.space_id);
+  const collab = (space?.settings as any)?.collaboration_enabled !== false;
   return (
     <div className="nc-form-toolbar">
       <div role="button" className="nc-form-tb-preview" data-testid="form-preview-button" onClick={() => openFormPreview(view.id)}><Icon name="ncEye" size={16} />Preview</div>
-      {!readOnly && <div role="button" className="nc-form-tb-share" data-testid="form-share-button" onClick={(e) => openShareMenu(e.currentTarget, view.id, collection.id)}>Share form</div>}
+      {!readOnly && collab && <div role="button" className="nc-form-tb-share" data-testid="form-share-button" onClick={(e) => openShareMenu(e.currentTarget, view.id, collection.id)}>Share form</div>}
     </div>
   );
 }

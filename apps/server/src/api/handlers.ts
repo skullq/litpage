@@ -22,7 +22,7 @@ import { realtime } from '../realtime.ts';
 import { sendLoginCodeEmail, sendWorkspaceInviteEmail } from '../notify.ts';
 import { createLoginChallenge, listFactors, mfaEnabled } from '../mfa.ts';
 import { audit, auditAccount } from '../audit.ts';
-import { passwordProblem } from '../policy.ts';
+import { isCollaborationEnabled, passwordProblem } from '../policy.ts';
 import { autoJoinAllowedDomains } from '../domainJoin.ts';
 import { retainBeforePurge } from '../retention.ts';
 import { TreeCopier, assertCopyBudget, ownedCollectionsOf } from '../dbcopy.ts';
@@ -302,6 +302,7 @@ export const handlers: Record<string, Handler> = {
     const uid = requireUser(ctx);
     const space = getRecord<SpaceRecord>('space', spaceId);
     if (!space || !space.permissions.some((p) => p.user_id === uid && ['owner', 'membership_admin'].includes(p.role as string))) throw new ApiError('Only workspace admins can invite members.', 403);
+    if (!isCollaborationEnabled(space)) throw new ApiError('Collaboration is disabled for this workspace.', 403);
     const r = String(role ?? 'editor');
     if (!MEMBER_ROLES.has(r) && !(r === 'restricted_member' && space.plan_type === 'enterprise')) throw new ApiError('Unknown role');
     // only owners create owners (same rule as setMemberRole)

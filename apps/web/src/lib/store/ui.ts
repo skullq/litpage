@@ -64,9 +64,9 @@ function writeLS(key: string, v: unknown) {
   }
 }
 
-const media = window.matchMedia('(prefers-color-scheme: dark)');
+const media = typeof window !== 'undefined' && typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 function applyTheme(t: Theme) {
-  const dark = t === 'dark' || (t === 'system' && media.matches);
+  const dark = t === 'dark' || (t === 'system' && !!media?.matches);
   const el = document.documentElement;
   el.classList.toggle('lit-dark-theme', dark);
   el.classList.toggle('lit-light-theme', !dark);
@@ -134,7 +134,7 @@ export const useUI = create<UIState>((set, get) => ({
   dismissToast: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
 }));
 
-media.addEventListener('change', () => {
+media?.addEventListener?.('change', () => {
   const s = useUI.getState();
   if (s.theme === 'system') s.set({ resolvedDark: applyTheme('system') });
 });

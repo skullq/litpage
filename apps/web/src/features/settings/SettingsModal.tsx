@@ -12,6 +12,7 @@ import { useSession } from '../../lib/store/session.ts';
 import { t } from '../shell/i18n.ts';
 import { UserAvatar } from './ui.tsx';
 import { searchSettings, useSettingsFocus, type SettingsHit } from './searchIndex.ts';
+import { isCollaborationEnabled } from './spaceSettings.ts';
 import './icons.ts';
 import './settings.css';
 import { AccountSection } from './sections/account.tsx';
@@ -42,6 +43,8 @@ interface NavItem {
   owner?: boolean;
   /** members see it on Enterprise workspaces (Analytics › Content) */
   enterpriseMembers?: boolean;
+  /** only visible when collaboration mode is enabled */
+  collaboration?: boolean;
   badge?: string;
   /** extra words matched by "Search settings" (setting labels inside the section) */
   keywords: string[];
@@ -62,8 +65,8 @@ function navGroups(): { title: string; items: NavItem[] }[] {
       title: t('lp.settings.workspace', 'Workspace'),
       items: [
         { key: 'general', label: t('lp.settings.general', 'General'), icon: 'gear', keywords: ['workspace name', 'icon', 'domain', 'leave workspace', 'delete workspace', 'export', 'workspace id', 'sidebar'] },
-        { key: 'members', label: t('lp.settings.people', 'People'), icon: 'people', keywords: ['members', 'guests', 'groups', 'invite', 'role', 'owner', 'admin'] },
-        { key: 'teamspaces', label: t('lp.settings.teams', 'Teams'), icon: 'teamspace', owner: true, keywords: ['default teamspaces', 'teamspace'] },
+        { key: 'members', label: t('lp.settings.people', 'People'), icon: 'people', collaboration: true, keywords: ['members', 'guests', 'groups', 'invite', 'role', 'owner', 'admin'] },
+        { key: 'teamspaces', label: t('lp.settings.teams', 'Teams'), icon: 'teamspace', owner: true, collaboration: true, keywords: ['default teamspaces', 'teamspace'] },
         { key: 'sidebar', label: t('lp.settings.sidebar', 'Sidebar'), icon: 'sidebarPreset', owner: true, keywords: ['sidebar presets', 'preset', 'tabs'] },
         { key: 'import', label: t('lp.settings.import', 'Import'), icon: 'arrowLineDown', keywords: ['csv', 'markdown', 'html', 'zip', 'pdf', 'evernote', 'confluence', 'asana', 'trello', 'word', 'excel'] },
       ],
@@ -73,7 +76,7 @@ function navGroups(): { title: string; items: NavItem[] }[] {
       items: [
         { key: 'content-search', label: t('lp.settings.content_search', 'Content search'), icon: 'contentSearch', owner: true, keywords: ['content search', 'retained pages', 'find pages', 'trash'] },
         { key: 'security', label: t('lp.settings.security', 'Security'), icon: 'shield', owner: true, keywords: ['publishing', 'export', 'guests', 'support access', 'data retention'] },
-        { key: 'identity', label: t('lp.settings.identity', 'Identity'), icon: 'idCard', owner: true, keywords: ['saml', 'sso', 'scim', 'domains'] },
+        { key: 'identity', label: t('lp.settings.identity', 'Identity'), icon: 'idCard', owner: true, collaboration: true, keywords: ['saml', 'sso', 'scim', 'domains'] },
       ],
     },
     {
@@ -93,20 +96,21 @@ function navGroups(): { title: string; items: NavItem[] }[] {
 }
 
 const ADMIN_FALLBACK: Partial<Record<SettingsKey, SettingsKey>> = {
-  teamspaces: 'general', sidebar: 'general', security: 'general', identity: 'general', analytics: 'general', 'audit-log': 'general',
+  members: 'general', teamspaces: 'general', sidebar: 'general', security: 'general', identity: 'general', analytics: 'general', 'audit-log': 'general',
   requests: 'general', billing: 'general', plans: 'general',
 };
 
-export interface NavAccess { admin: boolean; owner: boolean; enterprise: boolean }
+export interface NavAccess { admin: boolean; owner: boolean; enterprise: boolean; collaboration: boolean }
 
 function visible(it: NavItem, a: NavAccess): boolean {
+  if (it.collaboration && !a.collaboration) return false;
   if (it.owner) return a.owner;
   if (it.admin) return a.admin || (!!it.enterpriseMembers && a.enterprise);
   return true;
 }
 
 export function normalizeSettingsKey(raw: string, access: boolean | NavAccess): SettingsKey {
-  const a: NavAccess = typeof access === 'boolean' ? { admin: access, owner: access, enterprise: false } : access;
+  const a: NavAccess = typeof access === 'boolean' ? { admin: access, owner: access, enterprise: false, collaboration: true } : access;
   const alias: Record<string, SettingsKey> = {
     people: 'members', 'my-account': 'account', developer: 'developers', ai: 'lit-ai', mcp: 'lit-mcp', sites: 'public-pages',
     upgrade: 'general', plans: 'general', billing: 'general', requests: 'general',
@@ -135,7 +139,8 @@ export function SettingsModal() {
   const uid = useSession((s) => s.userId) ?? '';
   const user = useCurrentUser();
   const admin = isSpaceAdmin(space, uid);
-  const access: NavAccess = { admin, owner: (space?.permissions ?? []).some((p) => p.user_id === uid && (p.role as string) === 'owner'), enterprise: space?.plan_type === 'enterprise' };
+  const collab = isCollaborationEnabled(space);
+  const access: NavAccess = { admin, owner: (space?.permissions ?? []).some((p) => p.user_id === uid && (p.role as string) === 'owner'), enterprise: space?.plan_type === 'enterprise', collaboration: collab };
   const section = normalizeSettingsKey(raw, access);
   const [query, setQuery] = useState('');
   const focus = useSettingsFocus();

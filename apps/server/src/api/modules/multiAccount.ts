@@ -15,6 +15,7 @@ import { ApiError, type Ctx } from '../handlers.ts';
 import { RecordMapBuilder } from '../../records.ts';
 import { mailTemplates, sendMail } from '../../mail.ts';
 import { domainJoinMode, hasPendingDomainRequest, joinThroughAllowedDomain, spacesAllowingDomain } from '../../domainJoin.ts';
+import { isCollaborationEnabled } from '../../policy.ts';
 import { hit, RateLimitError } from '../../ratelimit.ts';
 
 type Handler = (ctx: Ctx, body: any) => any;
@@ -160,6 +161,7 @@ export const handlers: Record<string, Handler> = {
     const u = getRecord<UserRecord>('lit_user', uid);
     const space = u?.email ? spacesAllowingDomain(u.email).find((s) => s.id === String(spaceId ?? '')) : undefined;
     if (!space || (!isSpaceMember(space, uid) && domainJoinMode(space) === 'none')) throw new ApiError('This workspace isn’t open to your email domain.', 403);
+    if (!isCollaborationEnabled(space)) throw new ApiError('Collaboration is disabled for this workspace.', 403);
     if (!hit(`domain-join:${uid}`, 30, 60 * 60_000)) throw new RateLimitError();
     const result = joinThroughAllowedDomain(space, uid, u!.email);
     return { spaceId: space.id, domain: space.domain, requested: result === 'requested' };

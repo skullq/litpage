@@ -29,6 +29,7 @@ import { ColorSwatch } from './editors/SelectEditor.tsx';
 import { Toggle, reminderLabel } from './editors/DatePicker.tsx';
 import { propertyConfigRegistry, propertyCreatedHooks } from './editorRegistry.ts';
 import { REMINDER_OPTIONS_DATE, canRestrictProperty, hasPropertyRule, subitemConfigOf } from '@nc/shared/database/index.ts';
+import { isCollaborationEnabled } from '../../settings/spaceSettings.ts';
 import './properties.css';
 import { openNestedMenu } from '../menus.ts';
 import { autofillMenuItems, createAutofillProperty } from '../../ai/autofillUi.tsx';
@@ -126,11 +127,15 @@ export function calculateMenuDef(prop: PropertySchema, current: string, pick: (a
 }
 
 export function changeTypeMenuDef(collectionId: string, propId: string, prop: PropertySchema, onChanged?: (t: PropertyType) => void): MenuDef {
+  const c = records.get<CollectionRecord>('collection', collectionId);
+  const space = c ? records.get<SpaceRecord>('space', c.space_id) : undefined;
+  const collab = isCollaborationEnabled(space);
+  const availableTypes = CREATABLE_TYPES.filter((t) => collab || (t !== 'person' && t !== 'created_by' && t !== 'last_edited_by'));
   return {
     width: 200,
     maxHeight: 470,
     sections: [{
-      items: CREATABLE_TYPES.map((t) => {
+      items: availableTypes.map((t) => {
         const meta = propertyTypeMeta(t);
         return {
           id: t,
@@ -840,9 +845,18 @@ function AddPropertyMenu({ opts, close }: { opts: AddPropertyOptions; close: () 
   // Verification: wikis and Business / Enterprise workspaces, one per database
   const c = useCollection(opts.collectionId);
   const space = c ? records.get<SpaceRecord>('space', c.space_id) : undefined;
+  const collab = isCollaborationEnabled(space);
   const canVerify = !!c && !Object.values(c.schema).some((p) => p?.type === 'verification')
     && (!!(c.format as Record<string, unknown> | undefined)?.is_wiki || space?.plan_type === 'business' || space?.plan_type === 'enterprise');
-  const picker = PICKER_SECTIONS.map((s) => (s.id === 'advanced' && canVerify ? { ...s, types: [...s.types, 'verification' as PropertyType] } : s));
+  const picker = PICKER_SECTIONS.map((s) => {
+    let types = s.types;
+    if (s.id === 'advanced' && canVerify) types = [...types, 'verification' as PropertyType];
+    if (!collab) {
+      if (s.id === 'basic') types = types.filter((t) => t !== 'person');
+      if (s.id === 'metadata') types = types.filter((t) => t !== 'created_by' && t !== 'last_edited_by');
+    }
+    return { ...s, types };
+  });
   const sections = picker.map((s) => ({ ...s, types: s.types.filter((t) => query === null || propertyTypeMeta(t).label.toLowerCase().includes(query.toLowerCase())) })).filter((s) => s.types.length);
   const flat = sections.flatMap((s) => s.types);
   return (

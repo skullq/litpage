@@ -4,7 +4,8 @@ import { useRef } from 'react';
 import type { BlockRecord, CollectionRecord, SpaceRecord, TeamRecord, UserRecord } from '@nc/shared/records.ts';
 import { isArchivedRecord } from '@nc/shared/archive.ts';
 import { toPlainText } from '@nc/shared/richtext.ts';
-import { useBlock, useCurrentSpaceView, useRecord, useTableVersion } from '../../lib/hooks.ts';
+import { useBlock, useCurrentSpace, useCurrentSpaceView, useRecord, useTableVersion } from '../../lib/hooks.ts';
+import { isCollaborationEnabled } from '../settings/spaceSettings.ts';
 import { ancestorsOf } from '../../lib/blocks.ts';
 import { navigate, openPage, pageUrl, spaceDomain, useLocation } from '../../lib/router.ts';
 import { useUI } from '../../lib/store/ui.ts';
@@ -208,22 +209,24 @@ function Crumb({ block, current }: { block: BlockRecord; current?: boolean }) {
 function TopbarActions({ pageId }: { pageId: string }) {
   const page = useBlock(pageId);
   const sv = useCurrentSpaceView();
+  const space = useCurrentSpace();
   const moreRef = useRef<HTMLDivElement>(null);
   const editor = useRecord('lit_user', page?.last_edited_by_id) as any;
   if (!page) return null;
   const fav = !!sv?.bookmarked_pages?.includes(pageId);
+  const collab = isCollaborationEnabled(space);
   return (
     <div className="lit-topbar-action-buttons">
       <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <div className="nc-topbar-edited" data-tooltip={editor?.name ? `Edited by ${editor.name}` : undefined}>{relativeEdited(page.last_edited_time)}</div>
+        <div className="nc-topbar-edited" data-tooltip={collab && editor?.name ? `Edited by ${editor.name}` : undefined}>{relativeEdited(page.last_edited_time)}</div>
         <TranslatePill pageId={pageId} />
-        <TopbarFacepile pageId={pageId} />
-        <SuggestingPill pageId={pageId} />
-        <ShareButton pageId={pageId} />
+        {collab && <TopbarFacepile pageId={pageId} />}
+        {collab && <SuggestingPill pageId={pageId} />}
+        {collab && <ShareButton pageId={pageId} />}
         <div role="button" aria-label="Copy link" className="nc-topbar-icon-btn" data-tooltip="Copy link" onClick={() => copyPageLink(pageId)}>
           <Icon name="link" size={18} style={{ color: 'var(--lp-icon-primary)' }} />
         </div>
-        <TopbarCommentsButton pageId={pageId} />
+        {collab && <TopbarCommentsButton pageId={pageId} />}
         <div role="button" aria-label="Favorite" className="nc-topbar-icon-btn lit-topbar-favorite-button" data-tooltip={fav ? 'Remove from saved pages' : 'Save this page'} onClick={() => toggleFavorite(pageId)}>
           <Icon name="star" size={18} style={{ color: fav ? '#78350f' : 'var(--lp-icon-primary)', fill: fav ? '#78350f' : 'none' }} />
         </div>

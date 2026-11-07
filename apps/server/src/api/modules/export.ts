@@ -142,7 +142,8 @@ export const handlers: Record<string, Handler> = {
     exportRateLimit(block.space_id, uid);
     const fmt = normalizeFormat(format);
     const space = getRecord<SpaceRecord>('space', block.space_id);
-    const pdfSubpages = fmt === 'pdf' && !!includeSubpages;
+    // PDF › Include subpages is a Business/Enterprise feature (other plans show an upgrade tooltip)
+    const pdfSubpages = fmt === 'pdf' && !!includeSubpages && (space?.plan_type === 'business' || space?.plan_type === 'enterprise');
     const pageFormat = String(body?.pageFormat ?? opts.pdfFormat ?? 'A4');
     const res = exportTree(block.id, {
       format: fmt,
@@ -196,6 +197,7 @@ export const handlers: Record<string, Handler> = {
     if (!space || !space.permissions?.some((p) => p.type === 'user_permission' && p.user_id === uid && p.role !== 'none')) throw new ApiError('Not a member of this workspace', 403);
     exportAllowed(space.id, uid);
     const wantPdf = normalizeFormat(format) === 'pdf';
+    if (wantPdf && space.plan_type !== 'business' && space.plan_type !== 'enterprise') throw new ApiError('Upgrade to the Business plan to export your workspace as PDF', 403);
     exportRateLimit(space.id, uid);
     const fmt = normalizeFormat(format) === 'html' ? 'html' : 'markdown';
     // Settings › Audit log: "Exported all workspace content"
