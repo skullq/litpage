@@ -49,6 +49,12 @@ export function toggleWrap(ids: string[]) {
   setPref(PREF.codeWrap, next); // CodeBlockDefaultCodeWrap
 }
 
+export function toggleLineNumbers(ids: string[]) {
+  const b = getBlock(ids[0]);
+  const next = !(b?.format?.code_line_numbers === true);
+  run('toggleCodeLineNumbers', (tx) => { for (const id of ids) setFormat(tx, id, { code_line_numbers: next }); });
+}
+
 export function copyCode(blockId: string) {
   const text = toPlainText(getBlock(blockId)?.properties?.title as RichText | undefined);
   void copyText(text, 'Copied');
@@ -63,6 +69,7 @@ export function formatCode(blockId: string) {
   try {
     if (lang === 'json') out = JSON.stringify(JSON.parse(text), null, 2);
     else if (['javascript', 'typescript', 'css', 'scss', 'less', 'html', 'xml', 'markup', 'java', 'c', 'c++', 'c#', 'go', 'rust', 'swift', 'kotlin', 'php'].includes(lang)) out = reindentBraces(text);
+    else if (['cisco ios-xe', 'cisco nx-os', 'cisco ios-xr'].includes(lang)) out = reindentCisco(text);
   } catch {
     out = null;
   }
@@ -88,6 +95,63 @@ function reindentBraces(src: string): string {
     depth = Math.max(0, depth + open + (tagOpen > 0 ? tagOpen : 0) - (tagOpen < 0 ? 0 : 0));
     return out;
   }).join('\n');
+}
+
+/** Hierarchical indentation for Cisco IOS-XE, NX-OS, and IOS-XR configurations. */
+export function reindentCisco(src: string): string {
+  let depth = 0;
+  const topSectionRe = /^(?:interface\s+|router\s+|vrf\s+(?:definition|context)\s+|ip\s+vrf\s+|vpc\s+domain\s+|route-map\s+|policy-map\s+|class-map\s+|line\s+|route-policy\s+|prefix-set\s+|as-path-set\s+|community-set\s+|extcommunity-set\s+|rd-set\s+|l2vpn\b|evpn\b|mpls\s+(?:ldp|traffic-eng)\b|segment-routing\b|ip\s+dhcp\s+pool\s+|ip\s+access-list\s+|ipv6\s+access-list\s+|crypto\s+(?:isakmp|ipsec|ikev2|pki)\s+)/i;
+  const subSectionRe = /^(?:address-family\s+|member\s+vni\s+|bridge\s+group\s+|xconnect\s+group\s+|vni\s+\d+\b)/i;
+  const globalSingleRe = /^(?:hostname\s+|feature\s+|nv\s+overlay\s+|ip\s+route\s+|ipv6\s+route\s+|ip\s+prefix-list\s+|ipv6\s+prefix-list\s+|access-list\s+|username\s+|ntp\s+|logging\s+|snmp-server\s+|aaa\s+|clock\s+|service\s+|spanning-tree\s+|system\s+|fabric\s+forwarding\s+|boot\s+|version\s+)/i;
+
+  return src
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((raw) => {
+      const line = raw.trim();
+      if (!line) return '';
+      if (line === '!' || /^(?:end|commit|end-policy|end-set|end-group|end-class-map|end-policy-map)\b/i.test(line)) {
+        depth = 0;
+        return line;
+      }
+      if (/^exit-address-family\b/i.test(line)) {
+        depth = Math.max(1, depth - 1);
+        return ' '.repeat(depth) + line;
+      }
+      if (/^exit\b/i.test(line)) {
+        const out = ' '.repeat(depth) + line;
+        depth = Math.max(0, depth - 1);
+        return out;
+      }
+      if (/^endif\b/i.test(line)) {
+        depth = Math.max(1, depth - 1);
+        return '  '.repeat(depth) + line;
+      }
+      if (/^(?:else|elseif\b.*\bthen)\b/i.test(line)) {
+        const d = Math.max(1, depth - 1);
+        return '  '.repeat(d) + line;
+      }
+      if (topSectionRe.test(line)) {
+        depth = 1;
+        return line;
+      }
+      if (globalSingleRe.test(line)) {
+        depth = 0;
+        return line;
+      }
+      if (subSectionRe.test(line) && depth >= 1) {
+        const out = '  '.repeat(depth) + line;
+        depth = Math.min(3, depth + 1);
+        return out;
+      }
+      if (/^if\b.*\bthen$/i.test(line) && depth >= 1) {
+        const out = '  '.repeat(depth) + line;
+        depth = Math.min(4, depth + 1);
+        return out;
+      }
+      return '  '.repeat(depth) + line;
+    })
+    .join('\n');
 }
 
 function setPreviewFormat(blockId: string, f: PreviewFormat) {
@@ -139,6 +203,11 @@ function CodeBlock({ block, readOnly }: BlockProps) {
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLElement>, api: LeafApi) => {
     const mod = e.metaKey || e.ctrlKey;
+    if ((e.shiftKey && e.altKey && (e.key === 'F' || e.key === 'f')) || (mod && e.shiftKey && (e.key === 'F' || e.key === 'f'))) {
+      e.preventDefault();
+      formatCode(block.id);
+      return;
+    }
     if (e.key === 'Tab' && !mod && !e.altKey) {
       e.preventDefault();
       if (!e.shiftKey) insertTextAtSelection(block.id, 'title', api, '\t');
@@ -188,8 +257,11 @@ function CodeBlock({ block, readOnly }: BlockProps) {
                 }} />
               </>
             )}
-            <ActionButton icon={copied ? 'check' : 'copy'} tooltip="Copy" label="Copy code" onClick={() => { copyCode(block.id); setCopied(true); setTimeout(() => setCopied(false), 1500); }} />
+            <ActionButton icon={copied ? 'check' : 'copy'} tooltip={copied ? 'Copied!' : 'Copy code'} label="Copy code" onClick={() => { copyCode(block.id); setCopied(true); setTimeout(() => setCopied(false), 1500); }} />
+            <ActionButton icon="wand" tooltip="Format code (⇧⌥F)" label="Format code" onClick={() => formatCode(block.id)} />
+            <ActionButton icon="listNumber" tooltip={lineNumbers ? 'Hide line numbers' : 'Show line numbers'} active={lineNumbers} onClick={() => toggleLineNumbers([block.id])} />
             <ActionButton icon="arrowTurnDownLeft" tooltip={wrap ? 'Disable code wrapping' : 'Wrap code'} active={wrap} onClick={() => toggleWrap([block.id])} />
+            <ActionButton icon="aiFace" tooltip="Ask AI about code" label="Ask AI about code" onClick={() => window.dispatchEvent(new CustomEvent('nc:ask-ai', { detail: { blockId: block.id, blockIds: [block.id] } }))} />
             <ActionButton icon="ellipsis" tooltip="More actions" label="Open block options" onClick={(e) => openBlockMenu([block.id], e.currentTarget.getBoundingClientRect())} />
           </ActionBar>
         )}
