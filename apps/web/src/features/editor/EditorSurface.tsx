@@ -659,10 +659,15 @@ export function EditorSurface({ pageId, readOnly, children, scroller }: { pageId
     if (t.closest('input, textarea, .lit-overlay-container, .nc-page-header, .lit-collection-view-body, [data-native-context-menu]')) return;
     const root = rootRef.current;
     if (!root) return;
-    const leaf = t.closest<HTMLElement>('[data-content-editable-leaf="true"]');
+    const leaf =
+      t.closest<HTMLElement>('[data-content-editable-leaf="true"]') ??
+      t.closest<HTMLElement>('.nc-code-box')?.querySelector<HTMLElement>('[data-content-editable-leaf="true"]') ??
+      null;
     if (leaf && root.contains(leaf)) {
-      if (openTextMenuAtPoint(leaf, e.clientX, e.clientY)) e.preventDefault();
-      return;
+      if (openTextMenuAtPoint(leaf, e.clientX, e.clientY)) {
+        e.preventDefault();
+        return;
+      }
     }
     let el = t.closest<HTMLElement>('.lit-selectable[data-block-id]');
     while (el) {
@@ -672,10 +677,10 @@ export function EditorSurface({ pageId, readOnly, children, scroller }: { pageId
     }
     if (!el || !root.contains(el)) return;
     const b = getBlock(el.dataset.blockId);
-    // text blocks: only their text opens a menu (the empty area right of the text keeps the native one)
-    if (!b || TEXT_BLOCKS.has(b.type)) return;
-    e.preventDefault();
     const sel = useEditor.getState().selectedBlocks;
+    // text blocks: only their text opens a menu unless multiple blocks are selected
+    if (!b || (TEXT_BLOCKS.has(b.type) && !(sel.length > 1 && sel.includes(b.id)))) return;
+    e.preventDefault();
     const ids = sel.length > 1 && sel.includes(b.id) ? sel : [b.id];
     openBlockMenu(ids, new DOMRect(e.clientX, e.clientY, 0, 0), { atPointer: true });
   };

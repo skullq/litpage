@@ -132,7 +132,7 @@ function offsetAtPoint(leaf: HTMLElement, x: number, y: number): number | null {
   for (const o of [at - 1, at]) {
     if (o < 0 || o >= len) continue;
     for (const r of rectsForRange(leaf, o, o + 1)) {
-      if (x >= r.left - 1 && x <= r.right + 1 && y >= r.top - 1 && y <= r.bottom + 1) return o;
+      if (x >= r.left - 4 && x <= r.right + 4 && y >= r.top - 4 && y <= r.bottom + 4) return o;
     }
   }
   return null;
@@ -146,7 +146,7 @@ function wordAt(text: string, offset: number): { start: number; end: number } {
       const end = part.index + part.segment.length;
       if (offset >= part.index && offset < end) {
         if (!part.isWordLike) return { start: offset, end: offset + 1 };
-        return { start: part.index, end };
+        return { start: offset >= part.index ? part.index : offset, end };
       }
     }
   } catch {
@@ -162,14 +162,24 @@ function wordAt(text: string, offset: number): { start: number; end: number } {
 /** * Right-click on text selects the word under the pointer, or keeps a selection that contains it, and shows this card at its usual place, including when the block was block-selected. * Returns false when the pointer is not over text (the caller lets the browser menu open). */
 export function openTextMenuAtPoint(leaf: HTMLElement, x: number, y: number): boolean {
   if (!leaf.isContentEditable || !leaf.closest('.lit-page-content') || leaf.classList.contains('nc-code-leaf')) return false;
-  const at = offsetAtPoint(leaf, x, y);
-  if (at === null) return false;
   const cur = getSelectionOffsets(leaf);
   const sel = window.getSelection();
-  const inside = !!cur && cur.start !== cur.end && at >= cur.start && at < cur.end && !!sel && leafOf(sel.anchorNode) === leaf && leafOf(sel.focusNode) === leaf;
   const ed = useEditor.getState();
+  const hasSelectionInLeaf =
+    !ed.selectedBlocks.length &&
+    !!cur &&
+    cur.start !== cur.end &&
+    !!sel &&
+    !sel.isCollapsed &&
+    leafOf(sel.anchorNode) === leaf &&
+    leafOf(sel.focusNode) === leaf;
+
+  const at = offsetAtPoint(leaf, x, y);
+  if (at === null && !hasSelectionInLeaf) return false;
+
+  const inside = hasSelectionInLeaf && (at === null || (at >= cur.start && at <= cur.end));
   if (ed.selectedBlocks.length) ed.clearBlockSelection();
-  if (!inside) {
+  if (!inside && at !== null) {
     const w = wordAt(domText(leaf), at);
     if (document.activeElement !== leaf) leaf.focus({ preventScroll: true });
     setSelectionOffsets(leaf, w.start, w.end);
@@ -194,6 +204,7 @@ export function installTextMenuWatcher(): () => void {
     if (!st.mouseDown) schedule();
   };
   const onDown = (e: MouseEvent) => {
+    if (e.button === 2) return;
     if ((e.target as HTMLElement).closest?.('.lit-text-action-menu, .lit-overlay-container')) return;
     useTextMenu.setState({ mouseDown: true, ...(useTextMenu.getState().frozen ? {} : { range: null, pos: null }) });
   };
