@@ -684,9 +684,9 @@ export function EditorSurface({ pageId, readOnly, children, scroller }: { pageId
     }
     const clickedBlockId = el?.dataset.blockId;
 
-    // When multiple blocks are selected and the user right-clicks inside any selected block (text, empty space, halo, etc.),
-    // keep the multi-block selection and open the text action menu right at the cursor.
-    if (sel.length > 1 && clickedBlockId && sel.includes(clickedBlockId)) {
+    // When blocks are selected and the user right-clicks inside any selected block (text, empty space, halo, etc.),
+    // keep the selection and open the text action menu right at the cursor.
+    if (sel.length >= 1 && clickedBlockId && sel.includes(clickedBlockId)) {
       e.preventDefault();
       openTextMenuForBlocks(sel, e.clientX, e.clientY);
       return;

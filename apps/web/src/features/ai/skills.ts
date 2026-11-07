@@ -5,7 +5,7 @@ export type SkillId =
   | 'continue' | 'summarize' | 'action_items' | 'translate' | 'explain' | 'improve' | 'proofread'
   | 'shorter' | 'longer' | 'tone' | 'simplify' | 'brainstorm' | 'outline' | 'email' | 'agenda'
   | 'table' | 'flowchart' | 'reformat' | 'html' | 'custom'
-  | 'cisco_explain' | 'cisco_validate' | 'cisco_comment' | 'tech_doc';
+  | 'cisco_explain' | 'cisco_validate' | 'cisco_comment' | 'tech_doc' | 'code_regenerate';
 
 export interface SkillItem {
   id: SkillId;
@@ -42,6 +42,7 @@ export const SKILL: Record<SkillId, SkillItem> = {
   cisco_validate: { id: 'cisco_validate', label: 'Validate config', icon: 'check', mode: 'generate', keywords: ['validate', 'cisco', 'check config', '검증', '설정 검증'] },
   cisco_comment: { id: 'cisco_comment', label: 'Add config comments', icon: 'commentPencil', mode: 'edit', keywords: ['comment', 'cisco', 'annotation', '주석', '설정 주석'] },
   tech_doc: { id: 'tech_doc', label: 'Generate technical doc', icon: 'paperBolt', mode: 'generate', keywords: ['doc', 'technical', 'runbook', 'spec', '기술 문서화'] },
+  code_regenerate: { id: 'code_regenerate', label: 'Regenerate code', icon: 'sync', mode: 'edit', keywords: ['regenerate', 'regen', 'rewrite code', '코드 재생성', '코드 전체 재생성'] },
   custom: { id: 'custom', label: 'Ask AI', icon: 'aiFace', mode: 'generate' },
 };
 
@@ -53,6 +54,7 @@ export function skillFromLabel(label: string | undefined | null): SkillId | null
   for (const s of Object.values(SKILL)) if (s.label.toLowerCase() === l || s.keywords?.includes(l)) return s.id;
   if (l === 'fix spelling and grammar' || l === 'fix spelling & grammar') return 'proofread';
   if (l === 'explain this') return 'explain';
+  if (l === 'regenerate code' || l === 'regenerate' || l === '코드 전체 재생성' || l === '코드 재생성') return 'code_regenerate';
   return null;
 }
 
@@ -69,14 +71,14 @@ export const LANGUAGES = [
 export function writerSections(selection: boolean): { title: string; items: SkillId[] }[] {
   if (selection) {
     return [
-      { title: 'Technical & Config', items: ['cisco_explain', 'cisco_validate', 'cisco_comment', 'tech_doc'] },
+      { title: 'Technical & Config', items: ['code_regenerate', 'cisco_explain', 'cisco_validate', 'cisco_comment', 'tech_doc'] },
       { title: 'Edit', items: ['improve', 'proofread', 'shorter', 'longer', 'tone', 'simplify', 'reformat'] },
       { title: 'Think', items: ['summarize', 'explain', 'action_items', 'translate', 'continue'] },
     ];
   }
   return [
     { title: 'Suggested', items: ['continue', 'summarize', 'action_items', 'translate'] },
-    { title: 'Technical', items: ['tech_doc', 'cisco_explain', 'cisco_validate'] },
+    { title: 'Technical', items: ['code_regenerate', 'tech_doc', 'cisco_explain', 'cisco_validate'] },
     { title: 'Write', items: ['brainstorm', 'outline', 'email', 'agenda', 'table', 'flowchart'] },
   ];
 }

@@ -8,7 +8,35 @@ import type { Tx } from '../../lib/store/transactions.ts';
 import { markdownToPlan, type PlannedBlock } from './mdBlocks.ts';
 import type { SourceRef } from './aiApi.ts';
 
+import type { BlockRecord } from '@nc/shared/records.ts';
+
 export { markdownToPlan, inlineToRichText, codeLanguage, type PlannedBlock } from './mdBlocks.ts';
+
+function adaptPlanForCode(b: BlockRecord, md: string, plan: PlannedBlock[]): PlannedBlock[] {
+  if (b.type !== 'code') return plan;
+  const origLang = b.properties?.language;
+  const origFormat = b.format;
+  const codeBlocks = plan.filter((p) => p.type === 'code');
+  let resultBlocks: PlannedBlock[];
+  if (codeBlocks.length > 0) {
+    resultBlocks = codeBlocks;
+  } else {
+    const rawCode = md.replace(/^```[^\n]*\n?/, '').replace(/\n?```$/, '');
+    resultBlocks = [{
+      type: 'code',
+      title: [[rawCode]],
+      properties: { language: origLang ?? [['Plain Text']] },
+      format: origFormat,
+    }];
+  }
+  for (const p of resultBlocks) {
+    if (p.type === 'code') {
+      p.properties = { ...p.properties, language: origLang ?? [['Plain Text']] };
+      if (origFormat) p.format = { ...origFormat, ...p.format };
+    }
+  }
+  return resultBlocks;
+}
 
 function createPlanned(tx: Tx, blocks: PlannedBlock[], parentId: string, parentTable: ParentTable, after?: string): string[] {
   const ids: string[] = [];
@@ -57,8 +85,21 @@ export function appendMarkdown(parentId: string, md: string, opts?: { sources?: 
 export function replaceBlockWithMarkdown(blockId: string, md: string, opts?: { sources?: SourceRef[]; keepIfEmpty?: boolean }): string[] {
   const b = getBlock(blockId);
   if (!b) return [];
-  const plan = markdownToPlan(md, opts?.sources);
+  let plan = markdownToPlan(md, opts?.sources);
   if (!plan.length) return [];
+
+  if (b.type === 'code') {
+    plan = adaptPlanForCode(b, md, plan);
+    if (plan.length === 1) {
+      run('ai.accept', (tx) => {
+        setTitle(tx, blockId, plan[0].title ?? []);
+        tx.set('block', blockId, ['properties', 'language'], plan[0].properties?.language ?? [['Plain Text']]);
+        if (plan[0].format) tx.update('block', blockId, ['format'], plan[0].format);
+      });
+      return [blockId];
+    }
+  }
+
   let ids: string[] = [];
   run('ai.accept', (tx) => {
     // reuse the block itself for the first planned block when both are text-like (keeps focus/position)
@@ -85,7 +126,7 @@ export function replaceBlockWithMarkdown(blockId: string, md: string, opts?: { s
 export function replaceSelection(blockId: string, start: number, end: number, md: string, property = 'title'): string[] {
   const b = getBlock(blockId);
   if (!b) return [];
-  const plan = markdownToPlan(md);
+  let plan = markdownToPlan(md);
   if (!plan.length) return [];
   if (property !== 'title') {
     // captions / table cells: splice the text inline (one rich-text run, paragraphs joined by line breaks)
@@ -102,6 +143,17 @@ export function replaceSelection(blockId: string, start: number, end: number, md
   }
   const title = (b.properties?.title as RichText | undefined) ?? [];
   const wholeBlock = start <= 0 && end >= length(title);
+  if (b.type === 'code') {
+    plan = adaptPlanForCode(b, md, plan);
+    if (wholeBlock && plan.length === 1) {
+      run('ai.replaceSelection', (tx) => {
+        setTitle(tx, blockId, plan[0].title ?? []);
+        tx.set('block', blockId, ['properties', 'language'], plan[0].properties?.language ?? [['Plain Text']]);
+        if (plan[0].format) tx.update('block', blockId, ['format'], plan[0].format);
+      });
+      return [blockId];
+    }
+  }
   let ids: string[] = [blockId];
   run('ai.replaceSelection', (tx) => {
     const [first, ...rest] = plan;
@@ -131,8 +183,22 @@ export function replaceSelection(blockId: string, start: number, end: number, md
 export function replaceBlocks(blockIds: string[], md: string): string[] {
   const first = getBlock(blockIds[0]);
   if (!first) return [];
-  const plan = markdownToPlan(md);
+  let plan = markdownToPlan(md);
   if (!plan.length) return [];
+
+  const isSingleCode = first.type === 'code' && blockIds.length === 1;
+  if (isSingleCode) {
+    plan = adaptPlanForCode(first, md, plan);
+    if (plan.length === 1) {
+      run('ai.replaceBlocks', (tx) => {
+        setTitle(tx, first.id, plan[0].title ?? []);
+        tx.set('block', first.id, ['properties', 'language'], plan[0].properties?.language ?? [['Plain Text']]);
+        if (plan[0].format) tx.update('block', first.id, ['format'], plan[0].format);
+      });
+      return [first.id];
+    }
+  }
+
   let ids: string[] = [];
   run('ai.replaceBlocks', (tx) => {
     ids = createPlanned(tx, plan, first.parent_id, first.parent_table as ParentTable, blockIds[blockIds.length - 1]);

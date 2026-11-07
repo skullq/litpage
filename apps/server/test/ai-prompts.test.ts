@@ -254,6 +254,8 @@ describe('helpers', () => {
     expect(resolveSkill('Validate config')).toBe('cisco_validate');
     expect(resolveSkill('Add config comments')).toBe('cisco_comment');
     expect(resolveSkill('Generate technical doc')).toBe('tech_doc');
+    expect(resolveSkill('Regenerate code')).toBe('code_regenerate');
+    expect(resolveSkill('코드 전체 재생성')).toBe('code_regenerate');
     expect(resolveSkill('설정 설명')).toBe('cisco_explain');
     expect(resolveSkill('cisco config 검증')).toBe('cisco_validate');
     expect(resolveSkill('nope')).toBeNull();

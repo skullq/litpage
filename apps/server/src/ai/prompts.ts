@@ -17,7 +17,7 @@ export type SkillId =
   | 'continue' | 'summarize' | 'action_items' | 'translate' | 'explain' | 'improve' | 'proofread'
   | 'shorter' | 'longer' | 'tone' | 'simplify' | 'brainstorm' | 'outline' | 'email' | 'agenda'
   | 'table' | 'flowchart' | 'reformat' | 'html' | 'custom'
-  | 'cisco_explain' | 'cisco_validate' | 'cisco_comment' | 'tech_doc';
+  | 'cisco_explain' | 'cisco_validate' | 'cisco_comment' | 'tech_doc' | 'code_regenerate';
 
 export interface SkillDef {
   id: SkillId;
@@ -52,6 +52,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   cisco_validate: { id: 'cisco_validate', label: 'Validate config', mode: 'generate' },
   cisco_comment: { id: 'cisco_comment', label: 'Add config comments', mode: 'edit' },
   tech_doc: { id: 'tech_doc', label: 'Generate technical doc', mode: 'generate' },
+  code_regenerate: { id: 'code_regenerate', label: 'Regenerate code', mode: 'edit' },
   custom: { id: 'custom', label: 'Ask AI', mode: 'generate' },
 };
 
@@ -67,6 +68,7 @@ export const SKILL_ALIASES: Record<string, SkillId> = {
   'validate config': 'cisco_validate', 'validate cisco config': 'cisco_validate', 'cisco config 검증': 'cisco_validate', '설정 검증': 'cisco_validate',
   'add config comments': 'cisco_comment', 'add comments': 'cisco_comment', '설정 주석 추가': 'cisco_comment',
   'generate technical doc': 'tech_doc', 'technical doc': 'tech_doc', '기술 문서화': 'tech_doc', 'runbook': 'tech_doc',
+  'regenerate code': 'code_regenerate', 'regenerate': 'code_regenerate', 'rewrite code': 'code_regenerate', '코드 전체 재생성': 'code_regenerate', '코드 재생성': 'code_regenerate',
 };
 
 export function resolveSkill(nameOrId: string | undefined | null): SkillId | null {
@@ -572,6 +574,8 @@ export function writerTask(input: WriterInput): string {
       return `Annotate ${target} by adding concise, descriptive comments directly above or beside key commands using standard Cisco IOS comment syntax ("!"). Explain the purpose of interfaces, IP configurations, route targets, and access control entries. Preserve all original configuration commands verbatim and only insert informative comments.`;
     case 'tech_doc':
       return `Convert ${target} into a comprehensive, professional technical specification and operational runbook. Include: 1) Objective & Architecture Overview, 2) Configuration Breakdown (with Markdown tables for interfaces, IPs, and VLANs), 3) Step-by-Step Implementation Guide, 4) Verification & Troubleshooting Commands ('show ...'), and 5) Rollback / Backout Procedure.`;
+    case 'code_regenerate':
+      return `Regenerate and rewrite ${target} cleanly and completely based on industry best practices. Maintain the original programming language, configuration syntax, and intended functionality while improving clarity, structure, and correctness. Output only the rewritten code block.`;
     case 'custom':
     default:
       return topic || 'Help with the page.';

@@ -43,6 +43,7 @@ export const BUILTIN_SKILLS: { id: string; name: string; description: string; in
   { id: 'cisco_validate', name: 'Validate config', description: 'Inspect Cisco/network config for syntax errors, security gaps, and best practices.', instructions: 'Analyze this configuration for syntax errors, missing commands, security risks, and best practices. Provide a summary of issues and recommended fixes.' },
   { id: 'cisco_comment', name: 'Add config comments', description: 'Annotate commands and configuration lines with descriptive comments (!).', instructions: 'Annotate the configuration by adding concise, descriptive comments (using Cisco IOS comment syntax "!") above or beside key sections. Retain all original commands.' },
   { id: 'tech_doc', name: 'Generate technical doc', description: 'Convert configuration into a structured technical runbook and specification.', instructions: 'Convert this configuration into a structured technical specification or runbook with overview, interface/routing tables, verification commands, and rollback steps.' },
+  { id: 'code_regenerate', name: 'Regenerate code', description: 'Regenerate and rewrite the entire code cleanly maintaining original language and syntax.', instructions: 'Regenerate and rewrite the code cleanly and completely based on standard best practices while retaining the original language and functionality. Output only the rewritten code.' },
 ];
 
 function settings(userId: string): Record<string, unknown> {

@@ -7,7 +7,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { createPortal } from 'react-dom';
 import { create } from 'zustand';
 import type { BlockType } from '@nc/shared/records.ts';
-import { annotationValue, slice, type Annotation } from '@nc/shared/richtext.ts';
+import { annotationValue, slice, toPlainText, type Annotation, type RichText } from '@nc/shared/richtext.ts';
 import { Icon } from '../../../components/Icon.tsx';
 import { openMenu, type MenuDef } from '../../../components/Menu.tsx';
 import { useOverlays } from '../../../components/overlay.tsx';
@@ -103,7 +103,7 @@ function positionForBlocks(blockIds: string[], x?: number, y?: number): MenuStat
 }
 
 export function openTextMenuForBlocks(blockIds: string[], x?: number, y?: number): boolean {
-  if (blockIds.length < 2) return false;
+  if (blockIds.length < 1) return false;
   const pos = positionForBlocks(blockIds, x, y);
   if (!pos) return false;
   const firstId = blockIds[0];
@@ -355,7 +355,7 @@ export function installTextMenuWatcher(): () => void {
 }
 
 const GENERAL_SKILLS = ['Improve writing', 'Proofread', 'Explain', 'Reformat'];
-const TECH_SKILLS = ['Explain config', 'Validate config', 'Add config comments', 'Generate technical doc'];
+const TECH_SKILLS = ['Regenerate code', 'Explain config', 'Validate config', 'Add config comments', 'Generate technical doc'];
 const mod = isMac ? '⌘' : 'Ctrl+';
 const alt = isMac ? '⌥' : 'Alt+';
 const shift = isMac ? '⇧' : 'Shift+';
@@ -363,7 +363,7 @@ const ctrl = isMac ? '⌃' : 'Ctrl+';
 
 export function askAI(r: TextRange, extra?: { prompt?: string; skill?: string; skillId?: string }) {
   hideTextMenu();
-  if (r.blockIds && r.blockIds.length > 1) {
+  if (r.blockIds && r.blockIds.length > 0) {
     window.dispatchEvent(new CustomEvent('nc:ask-ai', { detail: { blockId: r.blockIds[0], blockIds: r.blockIds, ...extra } }));
     return;
   }
@@ -420,11 +420,18 @@ export function TextActionMenu({ readOnly }: { readOnly: boolean }) {
   useEffect(() => setAiText(''), [range?.blockId, range?.start, range?.end]);
 
   if (!range || !pos || readOnly || !block) return null;
+  const isCode = block.type === 'code';
+  const codeTotalLen = isCode ? toPlainText(block.properties?.title as RichText | undefined).length : 0;
+  const isWholeCode = isCode && (
+    (range.blockIds && range.blockIds.length > 0) ||
+    (range.start === 0 && range.end >= codeTotalLen)
+  );
+  const showSkills = !isCode || isWholeCode;
   const value = valueOf(range.blockId, range.property);
   const has = (k: Annotation[0]) => rangeHas(range, k);
   const colors = colorsOf(value, range.start, range.end);
   const isLink = annotationValue(value, range.start, range.end, 'a') !== undefined;
-  const showTurnInto = range.property === 'title';
+  const showTurnInto = range.property === 'title' && (!isCode || isWholeCode);
 
   // place below the selection end (or cursor on block selection); flip above when the card would leave the viewport
   const vh = window.innerHeight;
@@ -455,6 +462,7 @@ export function TextActionMenu({ readOnly }: { readOnly: boolean }) {
     });
   };
   const r = range;
+  const targetRange: TextRange = isWholeCode ? { ...r, blockIds: [block.id] } : r;
   const openTurnInto = (el: HTMLElement) => {
     if (turnIntoOpen.current) return;
     withFreeze((unfreeze) => {
@@ -611,68 +619,72 @@ export function TextActionMenu({ readOnly }: { readOnly: boolean }) {
               <TBtn icon="commentPencil" tip="Suggest edits" sub={`${mod}${shift}${alt}X`} onPress={() => { hideTextMenu(); void import('../../comments/suggest.ts').then((m) => m.startSuggestingOnRange(r)); }} />
             </div>
           </div>
-          <div className="nc-tam-divider" style={{ marginBlock: '4px 0' }} />
-          <div style={{ position: 'relative' }}>
-            {/* The list shows a 15px scrollbar and rows 161px wide. */}
-            <div className="nc-tam-skills lit-scroller vertical">
-              <div className="nc-tam-skills-head">
-                Skills
-                <div role="button" aria-label="Skills" className="nc-tam-icon-btn" data-tooltip="Manage skills" onClick={() => askAI(r, { skill: 'manage' })}>
-                  <Icon name="sliders" size={16} style={{ color: 'var(--lp-icon-secondary)' }} />
-                </div>
-              </div>
-              {((block.type === 'code' || (range.blockIds && range.blockIds.some((id) => getBlock(id)?.type === 'code')))
-                ? [...TECH_SKILLS, ...GENERAL_SKILLS]
-                : [...GENERAL_SKILLS, ...TECH_SKILLS]
-              ).map((s) => (
-                <div key={s} role="button" tabIndex={0} className="nc-tam-skill" onClick={() => askAI(r, { skill: s })}>
-                  <span className="nc-ellipsis" style={{ flex: '1 1 0%', minWidth: 0 }}>{s}</span>
-                  <div className="nc-tam-skill-edit">
-                    <div role="button" aria-label="Edit skill" className="nc-tam-icon-btn" data-tooltip="Edit skill" onClick={(e) => { e.stopPropagation(); askAI(r, { skill: s, edit: true } as any); }}>
-                      <Icon name="pencilLineSmall" size={16} style={{ color: 'var(--lp-icon-secondary)' }} />
+          {showSkills && (
+            <>
+              <div className="nc-tam-divider" style={{ marginBlock: '4px 0' }} />
+              <div style={{ position: 'relative' }}>
+                {/* The list shows a 15px scrollbar and rows 161px wide. */}
+                <div className="nc-tam-skills lit-scroller vertical">
+                  <div className="nc-tam-skills-head">
+                    Skills
+                    <div role="button" aria-label="Skills" className="nc-tam-icon-btn" data-tooltip="Manage skills" onClick={() => askAI(targetRange, { skill: 'manage' })}>
+                      <Icon name="sliders" size={16} style={{ color: 'var(--lp-icon-secondary)' }} />
                     </div>
                   </div>
-                </div>
-              ))}
-              {userSkills.map((s) => (
-                <div key={s.id} role="button" tabIndex={0} className="nc-tam-skill" data-skill-id={s.id} title={s.description || undefined} onClick={() => askAI(r, { skill: s.name, skillId: s.id })}>
-                  <span className="nc-ellipsis" style={{ flex: '1 1 0%', minWidth: 0 }}>{s.name}</span>
-                  {s.pageId && (
-                    <div className="nc-tam-skill-edit">
-                      <div role="button" aria-label="Edit skill" className="nc-tam-icon-btn" data-tooltip="Edit skill" onClick={(e) => { e.stopPropagation(); hideTextMenu(); openPage(s.pageId!); }}>
-                        <Icon name="pencilLineSmall" size={16} style={{ color: 'var(--lp-icon-secondary)' }} />
+                  {((block.type === 'code' || (range.blockIds && range.blockIds.some((id) => getBlock(id)?.type === 'code')))
+                    ? [...TECH_SKILLS, ...GENERAL_SKILLS]
+                    : [...GENERAL_SKILLS, ...TECH_SKILLS]
+                  ).map((s) => (
+                    <div key={s} role="button" tabIndex={0} className="nc-tam-skill" onClick={() => askAI(targetRange, { skill: s })}>
+                      <span className="nc-ellipsis" style={{ flex: '1 1 0%', minWidth: 0 }}>{s}</span>
+                      <div className="nc-tam-skill-edit">
+                        <div role="button" aria-label="Edit skill" className="nc-tam-icon-btn" data-tooltip="Edit skill" onClick={(e) => { e.stopPropagation(); askAI(targetRange, { skill: s, edit: true } as any); }}>
+                          <Icon name="pencilLineSmall" size={16} style={{ color: 'var(--lp-icon-secondary)' }} />
+                        </div>
                       </div>
                     </div>
-                  )}
+                  ))}
+                  {userSkills.map((s) => (
+                    <div key={s.id} role="button" tabIndex={0} className="nc-tam-skill" data-skill-id={s.id} title={s.description || undefined} onClick={() => askAI(targetRange, { skill: s.name, skillId: s.id })}>
+                      <span className="nc-ellipsis" style={{ flex: '1 1 0%', minWidth: 0 }}>{s.name}</span>
+                      {s.pageId && (
+                        <div className="nc-tam-skill-edit">
+                          <div role="button" aria-label="Edit skill" className="nc-tam-icon-btn" data-tooltip="Edit skill" onClick={(e) => { e.stopPropagation(); hideTextMenu(); openPage(s.pageId!); }}>
+                            <Icon name="pencilLineSmall" size={16} style={{ color: 'var(--lp-icon-secondary)' }} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <div className="nc-tam-skills-fade" />
-          </div>
-          <div className="nc-tam-ai">
-            {/* A multi-line role=textbox wraps, grows to 60px, then scrolls; Enter sends, ⇧Enter breaks. */}
-            <textarea
-              className="nc-tam-ai-input"
-              role="textbox"
-              aria-multiline="true"
-              rows={1}
-              placeholder="Revise with AI"
-              value={aiText}
-              onFocus={() => { useTextMenu.setState((s) => ({ frozen: s.frozen + 1 })); }}
-              onBlur={() => { useTextMenu.setState((s) => ({ frozen: Math.max(0, s.frozen - 1) })); }}
-              onChange={(e) => setAiText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                  e.preventDefault();
-                  if (aiText.trim()) askAI(r, { prompt: aiText.trim() });
-                } else if (e.key === 'Escape') {
-                  e.preventDefault();
-                  hideTextMenu();
-                }
-              }}
-            />
-            <div className="nc-tam-ai-hint">{isMac ? '⌘⌃E' : `${ctrl}${alt}E`}</div>
-          </div>
+                <div className="nc-tam-skills-fade" />
+              </div>
+              <div className="nc-tam-ai">
+                {/* A multi-line role=textbox wraps, grows to 60px, then scrolls; Enter sends, ⇧Enter breaks. */}
+                <textarea
+                  className="nc-tam-ai-input"
+                  role="textbox"
+                  aria-multiline="true"
+                  rows={1}
+                  placeholder={isCode ? "Regenerate code with AI" : "Revise with AI"}
+                  value={aiText}
+                  onFocus={() => { useTextMenu.setState((s) => ({ frozen: s.frozen + 1 })); }}
+                  onBlur={() => { useTextMenu.setState((s) => ({ frozen: Math.max(0, s.frozen - 1) })); }}
+                  onChange={(e) => setAiText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                      e.preventDefault();
+                      if (aiText.trim()) askAI(targetRange, { prompt: aiText.trim() });
+                    } else if (e.key === 'Escape') {
+                      e.preventDefault();
+                      hideTextMenu();
+                    }
+                  }}
+                />
+                <div className="nc-tam-ai-hint">{isMac ? '⌘⌃E' : `${ctrl}${alt}E`}</div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -99,17 +99,14 @@ try {
   const codeBox = await codeLeaf.boundingBox();
   console.log('Code block leaf bounds:', codeBox);
 
-  // Drag select in code block
-  const cStart = { x: codeBox.x + 30, y: codeBox.y + 15 };
-  const cEnd = { x: codeBox.x + 180, y: codeBox.y + 15 };
-  await page.mouse.move(cStart.x, cStart.y);
-  await page.mouse.down();
-  await page.mouse.move(cEnd.x, cEnd.y, { steps: 5 });
-  await page.mouse.up();
+  // Select all code in code block
+  await page.mouse.click(codeBox.x + 30, codeBox.y + 15);
+  await page.waitForTimeout(100);
+  await page.keyboard.press('Control+a');
   await page.waitForTimeout(200);
 
   // Right-click on code selection
-  const cClick = { x: cStart.x + 40, y: cStart.y };
+  const cClick = { x: codeBox.x + 40, y: codeBox.y + 15 };
   console.log(`Right clicking in code block at: ${cClick.x}, ${cClick.y}`);
   await page.mouse.click(cClick.x, cClick.y, { button: 'right' });
   await page.waitForTimeout(300);
@@ -129,7 +126,7 @@ try {
     const skills = page.locator('.nc-tam-skills .nc-tam-skill');
     const firstSkillText = await skills.first().innerText();
     console.log('First skill in code block:', firstSkillText);
-    check('Tech skill appears prominently in code block', firstSkillText.includes('config') || firstSkillText.includes('Explain') || firstSkillText.includes('Validate'));
+    check('Tech skill appears prominently in code block', firstSkillText.includes('Regenerate') || firstSkillText.includes('config') || firstSkillText.includes('Explain') || firstSkillText.includes('Validate'));
 
     // -------------------------------------------------------------
     // Test 3: Select a skill, verify InlineWriter preview, and test Accept/Discard buttons

@@ -20,7 +20,7 @@ import { useAiLayer, type WriterTarget } from './layerStore.ts';
 import { NoKeyNotice } from './NoKeyNotice.tsx';
 import { LANGUAGES, SKILL, TONES, writerSections, type SkillId } from './skills.ts';
 
-const EDIT_SKILLS = new Set<SkillId>(['improve', 'proofread', 'shorter', 'longer', 'tone', 'simplify', 'reformat', 'translate', 'custom']);
+const EDIT_SKILLS = new Set<SkillId>(['improve', 'proofread', 'shorter', 'longer', 'tone', 'simplify', 'reformat', 'translate', 'custom', 'cisco_comment', 'code_regenerate']);
 
 interface WriterRequest {
   skill: SkillId;
