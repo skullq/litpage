@@ -182,15 +182,14 @@ describe('export options (EXP-003/004/006/008/012)', () => {
     expect(html).toContain('<td>Beta</td>');
   });
 
-  it('PDF: paper size and scale; subpages only on Business+', async () => {
+  it('PDF: paper size and scale; subpages on every plan', async () => {
     const r = await call(ids.alice, 'startPageExport', { block: { id: ids.page }, recursive: true, exportOptions: { exportType: 'pdf', pdfFormat: 'Letter', pdfScale: 80 } });
     expect(r.printUrl).toBeTruthy();
     const doc = readExport(r.printUrl, ids.alice);
     expect(doc).toContain('size:letter');
     expect(doc).toContain('zoom:0.8');
     expect(doc).toContain('window.print()');
-    expect(doc).not.toContain('inside child'); // Plus plan: no subpages
-    db.putRecord('space', { ...db.getRecord<any>('space', ids.spaceA)!, plan_type: 'business' });
+    expect(doc).toContain('inside child'); // plan locks removed: subpages on every plan
     const r2 = await call(ids.alice, 'startPageExport', { block: { id: ids.page }, recursive: true, exportOptions: { exportType: 'pdf', pdfFormat: 'Tabloid' } });
     const doc2 = readExport(r2.printUrl, ids.alice);
     expect(doc2).toContain('size:11in 17in');
@@ -198,12 +197,10 @@ describe('export options (EXP-003/004/006/008/012)', () => {
     expect(doc2).toContain('page-break');
     // the page, its child page and the two rows of the database's exported view
     expect(r2.pages).toBe(4);
-    db.putRecord('space', { ...db.getRecord<any>('space', ids.spaceA)!, plan_type: 'plus' });
   });
 
-  it('workspace export as PDF (Business+, SET-WS-004.1): one print document, top-level pages and subpages on new sheets', async () => {
-    expect(await status(() => call(ids.alice, 'exportWorkspace', { spaceId: ids.spaceA, format: 'pdf' }))).toBe(403); // Plus
-    db.putRecord('space', { ...db.getRecord<any>('space', ids.spaceA)!, plan_type: 'business' });
+  it('workspace export as PDF (every plan, SET-WS-004.1): one print document, top-level pages and subpages on new sheets', async () => {
+    // plan locks removed: the Plus workspace can export as PDF
     try {
       const r = await call(ids.alice, 'exportWorkspace', { spaceId: ids.spaceA, format: 'pdf', pageFormat: 'Legal' });
       expect(r.printUrl).toBeTruthy();
