@@ -794,11 +794,9 @@ export function ContentSearchSection() {
   const [err, setErr] = useState('');
   const [nonce, setNonce] = useState(0);
   useTableVersion(['lit_user']);
-  const enterprise = plan === 'enterprise';
-  const acknowledged = !!prefs.content_search_ack;
 
   useEffect(() => {
-    if (!space?.id || !enterprise || !acknowledged) return;
+    if (!space?.id) return;
     let off = false;
     setRows(null);
     setErr('');
@@ -806,34 +804,10 @@ export function ContentSearchSection() {
       .then((r) => { if (off) return; records.mergeRecordMap(r.recordMap); setRows(r.rows); setTotal(r.total); })
       .catch((e) => { if (!off) setErr((e as Error).message); });
     return () => { off = true; };
-  }, [space?.id, enterprise, acknowledged, query, status, audience, createdBy, sharedWithAgent, nonce]);
+  }, [space?.id, query, status, audience, createdBy, sharedWithAgent, nonce]);
 
   if (!space) return null;
   const header = <SectionPage wide title={t('lp.settings.content_search', 'Content search')} subtitle={t('lp.settings.search_across_your_workspace', 'Search across your workspace')} />;
-  if (!enterprise) {
-    return (
-      <div className="nc-set-column wide">
-        {header}
-        <EnterpriseUpsell title={t('lp.settings.find_any_page_in_your_workspace', 'Find any page in your workspace')} description={t('lp.settings.upgrade_to_the_enterprise_plan_to_0dd0', 'Upgrade to the Enterprise plan to search every page in the workspace — including private pages and pages in Trash — and manage their access.')} />
-      </div>
-    );
-  }
-  if (!acknowledged) {
-    return (
-      <div className="nc-set-column wide">
-        {header}
-        <div className="nc-set-ent-upsell plain" data-testid="content-search-ack">
-          <div className="ttl">{t('lp.settings.before_you_use_this_feature', 'Before you use this feature')}</div>
-          <div className="desc">{t('lp.settings.workspace_owners_can_use_content_search', 'Workspace owners can use content search to find pages they can’t access, including other members’ private pages.')}</div>
-          <div className="desc">{t('lp.settings.ask_your_company_s_legal_team', 'Ask your company’s legal team for guidance on using this feature. Anything done here shows up in the audit log.')}</div>
-          <div className="actions">
-            <Button variant="primary" onClick={() => savePref('content_search_ack', true)}>{t('lp.settings.acknowledge', 'Acknowledge')}</Button>
-            {HELP_URL && <Button onClick={() => window.open(HELP_URL!, '_blank', 'noopener')}>{t('lp.settings.learn_more', 'Learn more')}</Button>}
-          </div>
-        </div>
-      </div>
-    );
-  }
   const members = (space.permissions ?? []).filter((p) => p.type === 'user_permission' && p.user_id && p.role !== 'none').map((p) => p.user_id!);
   const audienceMenu = (anchor: HTMLElement) => openMenu(anchor, {
     width: 300,

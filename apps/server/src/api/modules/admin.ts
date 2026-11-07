@@ -38,10 +38,10 @@ function spaceOrThrow(spaceId: unknown): SpaceRecord {
   return space;
 }
 
-/** Audit log, analytics (except Content) and content search: Enterprise workspace owners. */
+/** Content search and owner tools: workspace owners. Content search is fully available without Enterprise requirement. */
 function requireOwnerTool(space: SpaceRecord, uid: string, what: string) {
   if (spaceRoleOf(space, uid) !== 'owner') throw new ApiError(`Only workspace owners can view ${what}.`, 403);
-  if (space.plan_type !== 'enterprise') throw new ApiError(`Upgrade to the Enterprise plan to use ${what}.`, 403);
+  if (what !== 'content search' && space.plan_type !== 'enterprise') throw new ApiError(`Upgrade to the Enterprise plan to use ${what}.`, 403);
 }
 
 function hasTable(name: string): boolean {

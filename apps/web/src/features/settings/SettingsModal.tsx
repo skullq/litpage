@@ -71,6 +71,7 @@ function navGroups(): { title: string; items: NavItem[] }[] {
     {
       title: t('lp.settings.admin', 'Admin'),
       items: [
+        { key: 'content-search', label: t('lp.settings.content_search', 'Content search'), icon: 'contentSearch', owner: true, keywords: ['content search', 'retained pages', 'find pages', 'trash'] },
         { key: 'security', label: t('lp.settings.security', 'Security'), icon: 'shield', owner: true, keywords: ['publishing', 'export', 'guests', 'support access', 'data retention'] },
         { key: 'identity', label: t('lp.settings.identity', 'Identity'), icon: 'idCard', owner: true, keywords: ['saml', 'sso', 'scim', 'domains'] },
       ],
@@ -92,7 +93,7 @@ function navGroups(): { title: string; items: NavItem[] }[] {
 }
 
 const ADMIN_FALLBACK: Partial<Record<SettingsKey, SettingsKey>> = {
-  teamspaces: 'general', sidebar: 'general', security: 'general', identity: 'general', analytics: 'general', 'audit-log': 'general', 'content-search': 'general',
+  teamspaces: 'general', sidebar: 'general', security: 'general', identity: 'general', analytics: 'general', 'audit-log': 'general',
   requests: 'general', billing: 'general', plans: 'general',
 };
 
@@ -109,7 +110,8 @@ export function normalizeSettingsKey(raw: string, access: boolean | NavAccess): 
   const alias: Record<string, SettingsKey> = {
     people: 'members', 'my-account': 'account', developer: 'developers', ai: 'lit-ai', mcp: 'lit-mcp', sites: 'public-pages',
     upgrade: 'general', plans: 'general', billing: 'general', requests: 'general',
-    audit: 'general', auditlog: 'general', 'workspace-analytics': 'general', 'admin-content-search': 'general',
+    audit: 'general', auditlog: 'general', 'workspace-analytics': 'general',
+    'admin-content-search': 'content-search', content_search: 'content-search',
   };
   const k = (alias[raw] ?? raw) as SettingsKey;
   const item = navGroups().flatMap((g) => g.items).find((i) => i.key === k);

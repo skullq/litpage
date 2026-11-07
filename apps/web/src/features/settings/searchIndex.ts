@@ -92,6 +92,8 @@ export function settingsIndex(): SettingsHit[] {
     { section: 'security', tab: 'retention', id: 'purge-retention', label: t('lp.settings.how_long_deleted_pages_and_ai', 'How long deleted pages and AI chats are kept') },
     // Identity
     { section: 'identity', label: t('lp.settings.verified_domains', 'Verified domains'), keywords: ['saml', 'sso', 'scim'] },
+    // Content search
+    { section: 'content-search', label: t('lp.settings.content_search', 'Content search'), keywords: ['content search', 'find pages', 'retained pages', 'trash', 'audit pages'] },
     // Features
     { section: 'import', label: t('lp.settings.import', 'Import'), keywords: ['csv', 'markdown', 'word', 'excel', 'html', 'zip'] },
     { section: 'lit-ai', label: t('lp.settings.litpage_ai', 'Litpage AI'), keywords: ['ai', 'instructions', 'personalize', 'web search', 'models', 'agents'] },
