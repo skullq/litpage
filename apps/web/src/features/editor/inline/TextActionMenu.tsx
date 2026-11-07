@@ -122,6 +122,13 @@ export function openTextMenuForBlocks(blockIds: string[], x?: number, y?: number
 function evaluate(forceOpen = false) {
   const st = useTextMenu.getState();
   if (st.frozen > 0) return;
+  if (st.blockAnchor) {
+    const cur = currentTextSelection();
+    if (!cur || cur.range.blockId !== st.range?.blockId) {
+      useTextMenu.setState({ range: null, pos: null, blockAnchor: null });
+    }
+    return;
+  }
   if (!forceOpen && !st.range) return;
   const selBlocks = useEditor.getState().selectedBlocks;
   if (st.composing || st.mouseDown) {
@@ -196,7 +203,7 @@ function wordAt(text: string, offset: number): { start: number; end: number } {
   return b > a ? { start: a, end: b } : { start: offset, end: offset + 1 };
 }
 
-/** * Right-click on text selects the word under the pointer, or keeps a selection that contains it, and shows this card at its usual place, including when the block was block-selected. * Returns false when the pointer is not over text (the caller lets the browser menu open). */
+/** * Right-click on text selects the word under the pointer, or keeps a selection that contains it, and shows this card anchored at the pointer coordinates. * Returns false when the pointer is not over text (the caller lets the browser menu open). */
 export function openTextMenuAtPoint(leaf: HTMLElement, x: number, y: number): boolean {
   if (!leaf.isContentEditable || !leaf.closest('.lit-page-content')) return false;
   const cur = getSelectionOffsets(leaf);
@@ -217,9 +224,11 @@ export function openTextMenuAtPoint(leaf: HTMLElement, x: number, y: number): bo
     if (textLen === 0) {
       if (ed.selectedBlocks.length) ed.clearBlockSelection();
       const lr = leaf.getBoundingClientRect();
+      const blockAnchor = { x, y, top: y, blockTop: lr.top };
       useTextMenu.setState({
         range: { blockId: leaf.dataset.blockId!, property: leaf.dataset.property ?? 'title', start: 0, end: 0 },
-        pos: { x: Math.max(lr.left, Math.min(lr.right, x)), y: lr.bottom, top: lr.top },
+        pos: { x, y, top: y },
+        blockAnchor,
         mouseDown: false,
         frozen: 0,
       });
@@ -230,14 +239,28 @@ export function openTextMenuAtPoint(leaf: HTMLElement, x: number, y: number): bo
 
   const inside = hasSelectionInLeaf && (at === null || (at >= cur.start && at <= cur.end));
   if (ed.selectedBlocks.length) ed.clearBlockSelection();
+  let rangeToUse: TextRange;
   if (!inside && at !== null) {
     const w = wordAt(domText(leaf), at);
     if (document.activeElement !== leaf) leaf.focus({ preventScroll: true });
     setSelectionOffsets(leaf, w.start, w.end);
+    rangeToUse = { blockId: leaf.dataset.blockId!, property: leaf.dataset.property ?? 'title', start: w.start, end: w.end };
+  } else if (hasSelectionInLeaf && cur) {
+    rangeToUse = { blockId: leaf.dataset.blockId!, property: leaf.dataset.property ?? 'title', start: Math.min(cur.start, cur.end), end: Math.max(cur.start, cur.end) };
+  } else {
+    return false;
   }
-  useTextMenu.setState({ mouseDown: false, frozen: 0 });
+
+  const lr = leaf.getBoundingClientRect();
+  const blockAnchor = { x, y, top: y, blockTop: lr.top };
+  useTextMenu.setState({
+    range: rangeToUse,
+    pos: { x, y, top: y },
+    blockAnchor,
+    mouseDown: false,
+    frozen: 0,
+  });
   cancelAnimationFrame(raf);
-  evaluate(true);
   return true;
 }
 
@@ -287,18 +310,20 @@ export function installTextMenuWatcher(): () => void {
     if (e && (e.target as HTMLElement | null)?.closest?.('.nc-tam-skills, .lit-text-action-menu, .lit-overlay-container')) return;
     const st = useTextMenu.getState();
     if (!st.range) return;
-    if (st.range.blockIds?.length) {
-      if (st.blockAnchor) {
-        const firstEl = document.querySelector<HTMLElement>(`[data-block-id="${st.range.blockIds[0]}"]`);
-        if (firstEl) {
-          const firstRect = firstEl.getBoundingClientRect();
-          const dy = firstRect.top - st.blockAnchor.blockTop;
-          useTextMenu.setState({
-            pos: { x: st.blockAnchor.x, y: st.blockAnchor.y + dy, top: st.blockAnchor.top + dy },
-          });
-          return;
-        }
+    if (st.blockAnchor) {
+      const targetEl = st.range.blockIds?.length
+        ? document.querySelector<HTMLElement>(`[data-block-id="${st.range.blockIds[0]}"]`)
+        : leafFor(st.range.blockId, st.range.property);
+      if (targetEl) {
+        const targetRect = targetEl.getBoundingClientRect();
+        const dy = targetRect.top - st.blockAnchor.blockTop;
+        useTextMenu.setState({
+          pos: { x: st.blockAnchor.x, y: st.blockAnchor.y + dy, top: st.blockAnchor.top + dy },
+        });
+        return;
       }
+    }
+    if (st.range.blockIds?.length) {
       const pos = positionForBlocks(st.range.blockIds, st.pos?.x);
       if (pos) useTextMenu.setState({ pos });
       return;
@@ -412,9 +437,14 @@ export function TextActionMenu({ readOnly }: { readOnly: boolean }) {
     // For multi-block right clicks, anchor right at the pointer and flip up if exceeding screen height
     if (top + 16 + size.h > vh - 8) top = Math.max(8 - 16, top - size.h - 32);
   } else if (top + 16 + size.h > vh - 8) {
-    top = Math.max(8 - 16, pos.top - size.h - 32 + 8);
+    top = Math.max(8 - 16, pos.top - size.h - 24);
   }
-  if (left + 16 + size.w > vw - 8) left = vw - 8 - size.w - 16;
+  if (left + 16 + size.w > vw - 8) {
+    left = Math.max(8 - 16, vw - 8 - size.w - 16);
+  } else {
+    left = Math.max(8 - 16, left);
+  }
+  top = Math.max(8 - 16, top);
 
   const withFreeze = (open: (unfreeze: () => void) => void, key?: string) => {
     const release = freezeTextMenu();

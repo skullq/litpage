@@ -695,6 +695,7 @@ export function EditorSurface({ pageId, readOnly, children, scroller }: { pageId
     const leaf =
       t.closest<HTMLElement>('[data-content-editable-leaf="true"]') ??
       t.closest<HTMLElement>('.nc-code-box')?.querySelector<HTMLElement>('[data-content-editable-leaf="true"]') ??
+      el?.querySelector<HTMLElement>('[data-content-editable-leaf="true"]') ??
       null;
     if (leaf && root.contains(leaf)) {
       if (openTextMenuAtPoint(leaf, e.clientX, e.clientY)) {

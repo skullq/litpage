@@ -232,7 +232,7 @@ export function InlineWriter({ target }: { target: WriterTarget }) {
     const md = result.trim();
     if (!md || !lastReq) return;
     const t = target;
-    const editLike = EDIT_SKILLS.has(lastReq.skill) && hasSelection;
+    const editLike = (EDIT_SKILLS.has(lastReq.skill) || SKILL[lastReq.skill]?.mode === 'edit') && hasSelection;
     let ids: string[] = [];
     if (where === 'below') ids = insertMarkdownAfter(anchorId(t), md);
     else if (t.mode === 'empty') ids = replaceBlockWithMarkdown(t.blockId, md);
@@ -490,14 +490,33 @@ export function InlineWriter({ target }: { target: WriterTarget }) {
     }
   };
 
+  const showPreview = (phase === 'running' || phase === 'done' || (phase === 'error' && result)) && !!result.trim();
+  const [writerHeight, setWriterHeight] = useState(0);
+  useLayoutEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setWriterHeight(entry.target.getBoundingClientRect().height);
+      }
+    });
+    observer.observe(el);
+    setWriterHeight(el.getBoundingClientRect().height);
+    return () => observer.disconnect();
+  }, [phase, showPreview, items.length]);
+
   if (!rect) return null;
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+  let writerTop = rect.top;
+  if (writerHeight > 0 && writerTop + writerHeight > vh - 16) {
+    writerTop = Math.max(16, vh - writerHeight - 16);
+  }
   const placeholder = pending
     ? SKILL[pending].topic ?? 'Tell AI what to write…'
     : phase === 'done' || phase === 'error'
       ? 'Tell AI what to do next…'
       : hasSelection ? 'Polish with AI' : 'Ask AI a question…';
-  const showPreview = (phase === 'running' || phase === 'done' || (phase === 'error' && result)) && !!result.trim();
-  const menuBelow = rect.top + 360 < window.innerHeight;
+  const menuBelow = writerTop + (showPreview ? 280 : 0) + 320 < vh;
   let idx = -1;
   const menu = items.length > 0 && !(configured === false && phase === 'input') && (
     <div className="nc-ai-writer-menu" role="listbox">
@@ -540,7 +559,7 @@ export function InlineWriter({ target }: { target: WriterTarget }) {
       <div
         ref={rootRef}
         className={`nc-ai-writer ${target.mode}`}
-        style={{ left: rect.left, top: rect.top, width: rect.width }}
+        style={{ left: rect.left, top: writerTop, width: rect.width }}
         data-testid="ai-inline-writer"
       >
         {showPreview && (
@@ -578,21 +597,60 @@ export function InlineWriter({ target }: { target: WriterTarget }) {
             }}
             onKeyDown={onKeyDown}
           />
+          {phase === 'done' && (
+            <div className="nc-ai-writer-done-actions" data-testid="ai-writer-done-actions">
+              <button
+                type="button"
+                className="nc-btn nc-btn-sm primary nc-ai-writer-btn-accept"
+                title="Accept changes (↵)"
+                data-testid="ai-btn-accept"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => accept('auto')}
+              >
+                <Icon name="check" size={14} />
+                <span>Accept</span>
+              </button>
+              {(hasSelection || target.mode === 'below') && (
+                <button
+                  type="button"
+                  className="nc-btn nc-btn-sm nc-ai-writer-btn-below"
+                  title="Insert below"
+                  data-testid="ai-btn-insert-below"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => accept('below')}
+                >
+                  <Icon name="arrowTurnUpRight" size={14} />
+                  <span>Insert below</span>
+                </button>
+              )}
+              <button
+                type="button"
+                className="nc-btn nc-btn-sm nc-ai-writer-btn-discard"
+                title="Discard changes (Esc)"
+                data-testid="ai-btn-discard"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={discard}
+              >
+                <Icon name="close" size={14} />
+                <span>Discard</span>
+              </button>
+            </div>
+          )}
           {phase === 'running' ? (
             <div role="button" aria-label="Stop" data-tooltip="Stop" className="nc-ai-send stop" onMouseDown={(e) => e.preventDefault()} onClick={() => abortRef.current?.abort()}>
               <span className="nc-ai-stop-square" />
             </div>
-          ) : (
+          ) : (query.trim() || pending) ? (
             <div
               role="button"
               aria-label="Submit"
-              className={`nc-ai-send ${query.trim() || pending ? 'ready' : ''}`}
+              className="nc-ai-send ready"
               onMouseDown={(e) => e.preventDefault()}
               onClick={submit}
             >
               <Icon name="arrowUp" size={16} strokeWidth={2.2} />
             </div>
-          )}
+          ) : null}
         </div>
         {phase === 'error' && error && (
           error.code === 'no_key' ? <div className="nc-ai-writer-note"><NoKeyNotice compact /></div> : (
