@@ -10,6 +10,7 @@ import { abortError, AiError, ProviderError } from './errors.ts';
 import { buildResponsesRequest, ResponsesTranslator, type PendingFetch, type ResponsesRequest } from './responses.ts';
 import { readSse } from './sse.ts';
 import { fetchWebPage, type WebFetcher } from './webFetch.ts';
+import { ChatCompletionsMessageStream } from './chatCompletions.ts';
 
 type Json = Record<string, any>;
 
@@ -279,8 +280,17 @@ function urlOf(call: PendingFetch): string {
   }
 }
 
-/** A ClaudeLike client for an OpenAI Responses endpoint. */
+/** A ClaudeLike client for an OpenAI Responses endpoint (or Chat Completions for Gemini/Ollama). */
 export function openaiClient(cfg: OpenAIConfig, deps: OpenAIDeps = {}): ClaudeLike {
-  const stream = (params: Json, opts?: { signal?: AbortSignal }) => new OpenAIMessageStream(cfg, params, opts?.signal, deps);
+  const isChatCompletions =
+    /generativelanguage\.googleapis\.com|ollama|groq|openrouter/i.test(cfg.baseUrl) ||
+    process.env.NC_AI_PROVIDER === 'openai-chat';
+
+  const stream = (params: Json, opts?: { signal?: AbortSignal }) => {
+    if (isChatCompletions) {
+      return new ChatCompletionsMessageStream(cfg, params, opts?.signal, deps.fetch);
+    }
+    return new OpenAIMessageStream(cfg, params, opts?.signal, deps);
+  };
   return { beta: { messages: { stream: stream as unknown as ClaudeLike['beta']['messages']['stream'] } } };
 }

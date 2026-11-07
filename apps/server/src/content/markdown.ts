@@ -229,6 +229,9 @@ const LANG_ALIASES: Record<string, string> = {
   tex: 'LaTeX', latex: 'LaTeX', mermaid: 'Mermaid', elixir: 'Elixir', ex: 'Elixir', erlang: 'Erlang', clojure: 'Clojure', ocaml: 'OCaml',
   fsharp: 'F#', vb: 'Visual Basic', solidity: 'Solidity', protobuf: 'Protobuf', proto: 'Protobuf', nix: 'Nix', text: 'Plain Text', txt: 'Plain Text',
   plaintext: 'Plain Text', plain: 'Plain Text', ascii: 'ASCII Art', wasm: 'WebAssembly', verilog: 'Verilog', vhdl: 'VHDL', matlab: 'MATLAB',
+  'cisco-ios-xe': 'Cisco IOS-XE', 'ios-xe': 'Cisco IOS-XE', iosxe: 'Cisco IOS-XE', ios: 'Cisco IOS-XE', cisco: 'Cisco IOS-XE',
+  'cisco-nx-os': 'Cisco NX-OS', 'nx-os': 'Cisco NX-OS', nxos: 'Cisco NX-OS',
+  'cisco-ios-xr': 'Cisco IOS-XR', 'ios-xr': 'Cisco IOS-XR', iosxr: 'Cisco IOS-XR',
 };
 
 export function codeLanguage(info: string): string {

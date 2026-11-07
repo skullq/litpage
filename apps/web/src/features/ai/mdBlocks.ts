@@ -18,6 +18,9 @@ const LANG_ALIASES: Record<string, string> = {
   go: 'Go', golang: 'Go', rs: 'Rust', rust: 'Rust', kt: 'Kotlin', java: 'Java', c: 'C', cpp: 'C++', 'c++': 'C++', cs: 'C#',
   csharp: 'C#', php: 'PHP', swift: 'Swift', mermaid: 'Mermaid', tex: 'LaTeX', latex: 'LaTeX', xml: 'XML', toml: 'TOML',
   dockerfile: 'Docker', docker: 'Docker', diff: 'Diff', graphql: 'GraphQL', scss: 'SCSS', sass: 'Sass', r: 'R',
+  'cisco-ios-xe': 'Cisco IOS-XE', 'ios-xe': 'Cisco IOS-XE', iosxe: 'Cisco IOS-XE', ios: 'Cisco IOS-XE', cisco: 'Cisco IOS-XE',
+  'cisco-nx-os': 'Cisco NX-OS', 'nx-os': 'Cisco NX-OS', nxos: 'Cisco NX-OS',
+  'cisco-ios-xr': 'Cisco IOS-XR', 'ios-xr': 'Cisco IOS-XR', iosxr: 'Cisco IOS-XR',
   text: 'Plain Text', txt: 'Plain Text', plaintext: 'Plain Text', '': 'Plain Text',
 };
 

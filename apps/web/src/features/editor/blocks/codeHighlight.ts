@@ -84,12 +84,14 @@ import 'prismjs/components/prism-verilog';
 import 'prismjs/components/prism-vhdl';
 import 'prismjs/components/prism-wasm';
 import 'prismjs/components/prism-yaml';
+import './prismCisco.ts';
 import { toPlainText, type RichText } from '@nc/shared/richtext.ts';
 
 /** Language label to Prism grammar id (empty string means plain text). */
 const GRAMMAR: Record<string, string> = {
   'abap': 'abap', 'agda': 'agda', 'arduino': 'arduino', 'ascii art': '', 'assembly': 'nasm', 'bash': 'bash', 'basic': 'basic', 'bnf': 'bnf',
-  'c': 'c', 'c#': 'csharp', 'c++': 'cpp', 'clojure': 'clojure', 'coffeescript': 'coffeescript', 'css': 'css', 'dart': 'dart', 'dhall': 'dhall',
+  'c': 'c', 'c#': 'csharp', 'c++': 'cpp', 'cisco ios-xe': 'cisco-ios-xe', 'cisco ios-xr': 'cisco-ios-xr', 'cisco nx-os': 'cisco-nx-os',
+  'clojure': 'clojure', 'coffeescript': 'coffeescript', 'css': 'css', 'dart': 'dart', 'dhall': 'dhall',
   'diff': 'diff', 'docker': 'docker', 'ebnf': 'ebnf', 'elixir': 'elixir', 'elm': 'elm', 'erlang': 'erlang', 'f#': 'fsharp', 'flow': 'flow',
   'fortran': 'fortran', 'gherkin': 'gherkin', 'glsl': 'glsl', 'go': 'go', 'graphql': 'graphql', 'groovy': 'groovy', 'haskell': 'haskell',
   'hcl': 'hcl', 'html': 'markup', 'idris': 'idris', 'java': 'java', 'javascript': 'javascript', 'json': 'json', 'julia': 'julia',
@@ -101,8 +103,11 @@ const GRAMMAR: Record<string, string> = {
   'scheme': 'scheme', 'scss': 'scss', 'shell': 'bash', 'smalltalk': 'smalltalk', 'solidity': 'solidity', 'sql': 'sql', 'swift': 'swift',
   'toml': 'toml', 'typescript': 'typescript', 'vb.net': 'vbnet', 'verilog': 'verilog', 'vhdl': 'vhdl', 'visual basic': 'visual-basic',
   'webassembly': 'wasm', 'xml': 'markup', 'yaml': 'yaml',
-  // legacy labels for older blocks
+  // legacy labels and network aliases
   '(e)bnf': 'ebnf', 'java/c/c++/c#': 'clike', 'jsx': 'jsx', 'tsx': 'tsx',
+  'ios-xe': 'cisco-ios-xe', 'iosxe': 'cisco-ios-xe', 'ios': 'cisco-ios-xe', 'cisco': 'cisco-ios-xe',
+  'nx-os': 'cisco-nx-os', 'nxos': 'cisco-nx-os',
+  'ios-xr': 'cisco-ios-xr', 'iosxr': 'cisco-ios-xr',
 };
 
 export function grammarFor(language: string): string {

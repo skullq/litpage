@@ -21,7 +21,7 @@ export const MAX_CHILDREN = 100;
 export const MAX_DEPTH = 2;
 export const MAX_BLOCKS = 1000;
 
-const CODE_LANGUAGES = ['ABAP', 'Agda', 'Arduino', 'ASCII Art', 'Assembly', 'Bash', 'BASIC', 'BNF', 'C', 'C#', 'C++', 'Clojure', 'CoffeeScript', 'CSS',
+const CODE_LANGUAGES = ['ABAP', 'Agda', 'Arduino', 'ASCII Art', 'Assembly', 'Bash', 'BASIC', 'BNF', 'C', 'C#', 'C++', 'Cisco IOS-XE', 'Cisco IOS-XR', 'Cisco NX-OS', 'Clojure', 'CoffeeScript', 'CSS',
   'Dart', 'Dhall', 'Diff', 'Docker', 'EBNF', 'Elixir', 'Elm', 'Erlang', 'F#', 'Flow', 'Fortran', 'Gherkin', 'GLSL', 'Go', 'GraphQL', 'Groovy', 'Haskell',
   'HCL', 'HTML', 'Idris', 'Java', 'JavaScript', 'JSON', 'Julia', 'Kotlin', 'LaTeX', 'Less', 'Lisp', 'LiveScript', 'LLVM IR', 'Lua', 'Makefile', 'Markdown',
   'Markup', 'Mathematica', 'MATLAB', 'Mermaid', 'Nix', 'Litpage Formula', 'Objective-C', 'OCaml', 'Pascal', 'Perl', 'PHP', 'Plain Text', 'PowerShell',

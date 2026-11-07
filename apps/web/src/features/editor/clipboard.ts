@@ -121,6 +121,9 @@ function codeLanguage(lang: string): string {
     json: 'JSON', html: 'HTML', css: 'CSS', sql: 'SQL', java: 'Java', go: 'Go', rust: 'Rust', rs: 'Rust', c: 'C', cpp: 'C++', 'c++': 'C++', cs: 'C#',
     rb: 'Ruby', ruby: 'Ruby', php: 'PHP', swift: 'Swift', kotlin: 'Kotlin', yaml: 'YAML', yml: 'YAML', md: 'Markdown', markdown: 'Markdown', mermaid: 'Mermaid',
     jsx: 'JavaScript', tsx: 'TypeScript', xml: 'XML', diff: 'Diff', docker: 'Docker', dockerfile: 'Docker', graphql: 'GraphQL', scala: 'Scala',
+    'cisco-ios-xe': 'Cisco IOS-XE', 'ios-xe': 'Cisco IOS-XE', iosxe: 'Cisco IOS-XE', ios: 'Cisco IOS-XE', cisco: 'Cisco IOS-XE',
+    'cisco-nx-os': 'Cisco NX-OS', 'nx-os': 'Cisco NX-OS', nxos: 'Cisco NX-OS',
+    'cisco-ios-xr': 'Cisco IOS-XR', 'ios-xr': 'Cisco IOS-XR', iosxr: 'Cisco IOS-XR',
   };
   return map[l] ?? (lang ? lang : 'Plain Text');
 }
