@@ -33,6 +33,10 @@ export function requireConfigured() {
 
 let openaiCached: { key: string; client: ClaudeLike } | null = null;
 
+export function resetClientCache() {
+  openaiCached = null;
+}
+
 /** The active provider's client (Anthropic SDK, or the openai adapter with the same surface). */
 export function getClient(): ClaudeLike {
   const p = providerId();

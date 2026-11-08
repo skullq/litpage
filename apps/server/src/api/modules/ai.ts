@@ -3,7 +3,7 @@
 // when the selected provider is not configured.
 import { newId } from '@nc/shared/ids.ts';
 import { op as mk } from '@nc/shared/ops.ts';
-import { isRestrictedMember, roleAtLeast } from '@nc/shared/permissions.ts';
+import { isRestrictedMember, isSpaceAdmin, roleAtLeast } from '@nc/shared/permissions.ts';
 import { isSpaceOwner } from '../../policy.ts';
 import type { BlockRecord, SpaceRecord, UserRecord, UserSettingsRecord } from '@nc/shared/records.ts';
 import { db, getRecord } from '../../db.ts';
@@ -28,6 +28,7 @@ import { MAX_ATTACHMENTS } from '../../ai/attachments.ts';
 import { BUILTIN_SKILLS, isSkillPage, listSkills, skillById, skillFlag, skillMarkdown } from '../../ai/skills.ts';
 import { addConnection, createPreset, deletePreset, listConnections, listPresets, refreshConnection, removeAllConnections, removeConnection, updateConnection } from '../../ai/mcp.ts';
 import { audit } from '../../audit.ts';
+import { fetchProviderModels, getEnvConfig, saveEnvConfig } from '../../ai/envConfig.ts';
 import {
   approveClients, clientMembers, createToken, disableMyClient, disconnectClient, listClients, listTokens, MCP_CLIENT_CATALOG, removeApprovedClient, renameClient, revokeAll, revokeToken, setClientRestriction,
 } from '../../ai/litMcp.ts';
@@ -146,6 +147,45 @@ export const handlers = {
       prefs: { web: prefs.web, approvalMode: prefs.approvalMode, model: prefs.model },
       limits: { attachments: MAX_ATTACHMENTS },
     };
+  },
+
+  aiGetEnvConfig(ctx: Ctx, body: any) {
+    const userId = uid(ctx);
+    const spaceId = typeof body?.spaceId === 'string' ? body.spaceId : null;
+    const space = spaceId ? getRecord<SpaceRecord>('space', spaceId) : null;
+    if (!space || !isSpaceAdmin(space, userId)) throw new ApiError('Only workspace admins can view AI server settings.', 403);
+    return getEnvConfig();
+  },
+
+  async aiSaveEnvConfig(ctx: Ctx, body: any) {
+    const userId = uid(ctx);
+    const spaceId = typeof body?.spaceId === 'string' ? body.spaceId : null;
+    const space = spaceId ? getRecord<SpaceRecord>('space', spaceId) : null;
+    if (!space || !isSpaceAdmin(space, userId)) throw new ApiError('Only workspace admins can change AI server settings.', 403);
+    const saved = await saveEnvConfig({
+      provider: body.provider,
+      openaiBaseUrl: body.openaiBaseUrl,
+      openaiApiKey: body.openaiApiKey,
+      anthropicApiKey: body.anthropicApiKey,
+      model: body.model,
+      fastModel: body.fastModel,
+      imageModel: body.imageModel,
+      allowedModels: body.allowedModels,
+    });
+    return { ok: true, config: saved };
+  },
+
+  async aiFetchProviderModels(ctx: Ctx, body: any) {
+    const userId = uid(ctx);
+    const spaceId = typeof body?.spaceId === 'string' ? body.spaceId : null;
+    const space = spaceId ? getRecord<SpaceRecord>('space', spaceId) : null;
+    if (!space || !isSpaceAdmin(space, userId)) throw new ApiError('Only workspace admins can view AI models.', 403);
+    try {
+      const models = await fetchProviderModels(String(body.provider ?? 'openai'), body.baseUrl, body.apiKey);
+      return { ok: true, models };
+    } catch (e: any) {
+      throw new ApiError(e.message || 'Failed to fetch models from provider', 400);
+    }
   },
 
   aiListThreads(ctx: Ctx, body: any) {

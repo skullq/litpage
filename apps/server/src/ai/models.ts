@@ -55,6 +55,11 @@ export let DEFAULT_MODEL = process.env.NC_AI_MODEL?.trim() || ANTHROPIC_DEFAULT;
 let hiddenOpenAI: ModelInfo[] = [];
 let syncedKey = '';
 
+export function resetModelsCache(): void {
+  syncedKey = '';
+  syncModels();
+}
+
 const OLDER = /^(older|previous|legacy)\b/i;
 const FAST = /\b(fast|faster|fastest|affordable|efficient|quick|lightweight)\b/i;
 

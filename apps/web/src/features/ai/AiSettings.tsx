@@ -17,6 +17,7 @@ import { useConnections, type McpConnection } from './aiStores.ts';
 import { chatUrl } from './ChatHistory.tsx';
 import { openMcpConnectDialog } from './dialogs.tsx';
 import { McpClientsAdmin } from './McpClients.tsx';
+import { AiEnvSettings } from './AiEnvSettings.tsx';
 import { t } from '../shell/i18n.ts';
 
 const LOCK_TIP = 'Ask a workspace admin to change this option';
@@ -212,6 +213,7 @@ export function AiWorkspaceControls() {
         ))}
         {owner && <McpAllowlist space={space} />}
       </Group>
+      {owner && <AiEnvSettings space={space} admin={owner} />}
       <ModelControls space={space} admin={owner} />
       <Group plain title="My MCP connections" description="Remote MCP servers Litpage AI can use in your chats (+ → Connections).">
         {conns.list.map((c) => <ConnectionRow key={c.id} c={c} />)}
