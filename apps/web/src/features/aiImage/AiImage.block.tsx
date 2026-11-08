@@ -13,21 +13,18 @@ import { t } from '../shell/i18n.ts';
 import { imageSwitchOn, planIncludesImages } from './api.ts';
 import { openAiImagePopover } from './AiImageTab.tsx';
 
-function openWhenRendered(id: string, fallback: DOMRect, tries = 0) {
+function openWhenRendered(id: string, fallback: DOMRect, initialPrompt?: string, tries = 0) {
   const row = blockElement(id);
   const el = row?.querySelector<HTMLElement>('.nc-blk-placeholder') ?? row;
-  if (el) openAiImagePopover(id, el);
-  else if (tries < 30) requestAnimationFrame(() => openWhenRendered(id, fallback, tries + 1));
-  else openAiImagePopover(id, fallback);
+  if (el) openAiImagePopover(id, el, initialPrompt);
+  else if (tries < 30) requestAnimationFrame(() => openWhenRendered(id, fallback, initialPrompt, tries + 1));
+  else openAiImagePopover(id, fallback, initialPrompt);
 }
 
 function insertAiImage(ctx: SlashContext) {
   const spaceId = getBlock(ctx.blockId)?.space_id ?? useSession.getState().spaceId;
-  if (!planIncludesImages(spaceId)) {
-    useUI.getState().toast(t('lp.aiimage.ai_image_generation_is_available_on', 'AI image generation is available on the Business and Enterprise plans.'), {
-      label: t('lp.aiimage.view_plans', 'View plans'),
-      run: () => useUI.getState().openSettings('plans'),
-    });
+  if (!imageSwitchOn(spaceId)) {
+    useUI.getState().toast(t('lp.aiimage.turn_on_litpage_ai_before_generating', 'Turn on Litpage AI before generating images.'));
     return;
   }
   const id = place(ctx, 'image', { focus: false, addTextAfter: false });

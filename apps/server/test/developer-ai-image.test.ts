@@ -90,11 +90,9 @@ describe('SVG sanitizer', () => {
 });
 
 describe('availability', () => {
-  it('needs Business / Enterprise, the workspace switch, Litpage AI on and a key', async () => {
-    expect(() => image.assertImageAllowed(ids.space, ids.owner, { client: fake('') as any })).toThrow(/Business and Enterprise/);
-    const s = db.getRecord<any>('space', ids.space)!;
-    db.putRecord('space', { ...s, plan_type: 'business' });
+  it('needs the workspace switch, Litpage AI on and a key', async () => {
     expect(() => image.assertImageAllowed(ids.space, ids.owner, { client: fake('') as any })).not.toThrow();
+    const s = db.getRecord<any>('space', ids.space)!;
     expect(() => image.assertImageAllowed(ids.space, ids.owner)).toThrow(/Connect an AI provider/);
     db.putRecord('space', { ...db.getRecord<any>('space', ids.space)!, settings: { ...s.settings, ai_image_generation: false } });
     expect(() => image.assertImageAllowed(ids.space, ids.owner, { client: fake('') as any })).toThrow(/turned off/);

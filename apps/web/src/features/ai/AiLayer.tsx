@@ -3,7 +3,8 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { length, type RichText } from '@nc/shared/richtext.ts';
-import { getBlock } from '../../lib/blocks.ts';
+import { newId } from '@nc/shared/ids.ts';
+import { createBlockIn, getBlock, run } from '../../lib/blocks.ts';
 import { navigate, spaceDomain, useLocation } from '../../lib/router.ts';
 import { useSession } from '../../lib/store/session.ts';
 import { useUI } from '../../lib/store/ui.ts';
@@ -25,6 +26,7 @@ import { createHtmlWithAi } from './htmlAi.ts';
 import { savePref } from '../settings/userSettings.ts';
 import { useAsSkill, useSkills } from './aiStores.ts';
 import { editSkill } from './SkillsLibrary.tsx';
+import { generateIntoBlock } from '../aiImage/api.ts';
 
 // ---------------------------------------------------------------------------------------------
 // Entry points
@@ -183,6 +185,36 @@ function onAskAi(e: Event) {
     return;
   }
   const skill = skillFromLabel(d.skill);
+  if (skill === 'image' && d.blockId) {
+    const refBlock = getBlock(d.blockId);
+    if (refBlock) {
+      let prompt = d.prompt?.trim() || '';
+      if (!prompt) {
+        const rich = refBlock.properties?.[d.property ?? 'title'] as RichText | undefined;
+        if (d.start !== undefined && d.end !== undefined && d.end > d.start && rich) {
+          prompt = richTextToMarkdown(rich).slice(d.start, d.end).trim();
+        } else if (rich) {
+          prompt = richTextToMarkdown(rich).trim();
+        }
+      }
+      if (!prompt) prompt = 'Illustration';
+      const newImgId = newId();
+      run('insertAiImageFromSelection', (tx) => {
+        createBlockIn(tx, {
+          id: newImgId,
+          type: 'image',
+          parentId: refBlock.parent_id,
+          parentTable: refBlock.parent_table,
+          after: refBlock.id,
+        });
+      });
+      const currentModel = useAiStatus.getState().model || 'auto';
+      void generateIntoBlock(newImgId, prompt, 'default', currentModel).catch((err) => {
+        useUI.getState().toast((err as Error)?.message || 'Failed to generate image');
+      });
+      return;
+    }
+  }
   if (d.blockId) {
     const ed = useEditor.getState();
     const multi = d.blockIds ?? (ed.selectedBlocks.includes(d.blockId) && ed.selectedBlocks.length > 1 ? [...ed.selectedBlocks] : undefined);

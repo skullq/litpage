@@ -13,6 +13,7 @@ import { useSession } from '../../../../lib/store/session.ts';
 import { fileSizeLabel, isValidUrl, normalizeUrl, containerWidthOf, toast } from '../shared.tsx';
 import { isAudioFile, isImageFile, isPdfFile, isVideoFile, providerByName, providerForType, providerForUrl, resolveEmbed, videoEmbedUrl } from './embedProviders.ts';
 import { AiImageTab, aiImageTabs } from '../../../aiImage/AiImageTab.tsx';
+import { t } from '../../../shell/i18n.ts';
 
 type Tab = 'upload' | 'link' | 'unsplash' | 'giphy' | 'embed' | 'add' | 'ai';
 
@@ -227,7 +228,15 @@ export function openMediaPicker(block: BlockRecord, anchor: HTMLElement, opts?: 
   return openOverlay((close) => <MediaPicker blockId={block.id} close={close} replace={opts?.replace} />, { anchor, placement: 'bottom', offset: 0 });
 }
 
-const TAB_LABEL: Record<Tab, string> = { upload: 'Upload', link: 'Link', unsplash: 'Unsplash', giphy: 'GIPHY', embed: 'Embed link', add: 'Add', ai: 'Litpage AI' };
+const TAB_LABEL: Record<Tab, string> = {
+  upload: 'Upload',
+  link: 'Link',
+  unsplash: 'Unsplash',
+  giphy: 'GIPHY',
+  embed: 'Embed link',
+  add: 'Add',
+  ai: t('lp.aiimage.ai_image', 'AI Image'),
+};
 
 export function PickerTabs({ tabs, tab, setTab, right }: { tabs: Tab[]; tab: Tab; setTab: (t: Tab) => void; right?: ReactNode }) {
   return (

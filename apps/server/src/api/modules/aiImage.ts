@@ -40,15 +40,15 @@ export const handlers: Record<string, Handler> = {
     return { ...p, available: p.planIncluded && p.enabled && p.aiEnabled, provider: imageProvider().label, styles: IMAGE_STYLES };
   },
 
-  async aiGenerateImageBlock(ctx, { blockId, prompt, style }) {
+  async aiGenerateImageBlock(ctx, { blockId, prompt, style, model }) {
     const uid = requireUser(ctx);
-    const r = await wrap(() => generateIntoBlock({ userId: uid, blockId, prompt, style }));
+    const r = await wrap(() => generateIntoBlock({ userId: uid, blockId, prompt, style, model }));
     return { url: r.file.url, fileId: r.file.id, width: r.width, height: r.height, recordMap: blockMap(uid, r.blockId) };
   },
 
-  async aiEditImageBlock(ctx, { blockId, instruction }) {
+  async aiEditImageBlock(ctx, { blockId, instruction, model }) {
     const uid = requireUser(ctx);
-    const r = await wrap(() => editBlockImage({ userId: uid, blockId, instruction }));
+    const r = await wrap(() => editBlockImage({ userId: uid, blockId, instruction, model }));
     return { url: r.file.url, fileId: r.file.id, recordMap: blockMap(uid, r.blockId) };
   },
 
@@ -62,9 +62,9 @@ export const handlers: Record<string, Handler> = {
   },
 
   /** Page cover › AI: an image for the cover (the client sets format.page_cover). */
-  async aiGenerateImage(ctx, { spaceId, prompt, style, pageId }) {
+  async aiGenerateImage(ctx, { spaceId, prompt, style, pageId, model }) {
     const uid = requireUser(ctx);
-    const r = await wrap(() => generateImage({ userId: uid, spaceId: String(spaceId ?? ''), prompt, style, pageId }));
+    const r = await wrap(() => generateImage({ userId: uid, spaceId: String(spaceId ?? ''), prompt, style, pageId, model }));
     return { url: r.file.url, fileId: r.file.id, width: r.width, height: r.height };
   },
 };

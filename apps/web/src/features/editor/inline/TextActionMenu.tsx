@@ -354,7 +354,7 @@ export function installTextMenuWatcher(): () => void {
   };
 }
 
-const GENERAL_SKILLS = ['Improve writing', 'Proofread', 'Explain', 'Reformat'];
+const GENERAL_SKILLS = ['Improve writing', 'Proofread', 'Explain', 'Reformat', 'AI 이미지'];
 const TECH_SKILLS = ['Regenerate code', 'Explain config', 'Validate config', 'Add config comments', 'Generate technical doc'];
 const mod = isMac ? '⌘' : 'Ctrl+';
 const alt = isMac ? '⌥' : 'Alt+';

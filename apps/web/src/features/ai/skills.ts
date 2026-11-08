@@ -5,7 +5,8 @@ export type SkillId =
   | 'continue' | 'summarize' | 'action_items' | 'translate' | 'explain' | 'improve' | 'proofread'
   | 'shorter' | 'longer' | 'tone' | 'simplify' | 'brainstorm' | 'outline' | 'email' | 'agenda'
   | 'table' | 'flowchart' | 'reformat' | 'html' | 'custom'
-  | 'cisco_explain' | 'cisco_validate' | 'cisco_comment' | 'tech_doc' | 'code_regenerate';
+  | 'cisco_explain' | 'cisco_validate' | 'cisco_comment' | 'tech_doc' | 'code_regenerate'
+  | 'image';
 
 export interface SkillItem {
   id: SkillId;
@@ -43,6 +44,7 @@ export const SKILL: Record<SkillId, SkillItem> = {
   cisco_comment: { id: 'cisco_comment', label: 'Add config comments', icon: 'commentPencil', mode: 'edit', keywords: ['comment', 'cisco', 'annotation', '주석', '설정 주석'] },
   tech_doc: { id: 'tech_doc', label: 'Generate technical doc', icon: 'paperBolt', mode: 'generate', keywords: ['doc', 'technical', 'runbook', 'spec', '기술 문서화'] },
   code_regenerate: { id: 'code_regenerate', label: 'Regenerate code', icon: 'sync', mode: 'edit', keywords: ['regenerate', 'regen', 'rewrite code', '코드 재생성', '코드 전체 재생성'] },
+  image: { id: 'image', label: 'AI 이미지', icon: 'photo', mode: 'generate', keywords: ['ai 이미지', 'ai image', 'image', 'generate image', '이미지 생성', '그림'] },
   custom: { id: 'custom', label: 'Ask AI', icon: 'aiFace', mode: 'generate' },
 };
 
@@ -55,6 +57,7 @@ export function skillFromLabel(label: string | undefined | null): SkillId | null
   if (l === 'fix spelling and grammar' || l === 'fix spelling & grammar') return 'proofread';
   if (l === 'explain this') return 'explain';
   if (l === 'regenerate code' || l === 'regenerate' || l === '코드 전체 재생성' || l === '코드 재생성') return 'code_regenerate';
+  if (l === 'ai 이미지' || l === 'ai image' || l === 'image' || l === 'generate image' || l === '이미지 생성') return 'image';
   return null;
 }
 

@@ -15,6 +15,7 @@ import { applyTransactions, blockRole } from '../records.ts';
 import { aiAllowed, count, hit } from '../ratelimit.ts';
 import { storeFile, readStoredFile, type StoredFile } from '../content/files.ts';
 import { AiError, aiConfigured, mapError, NO_KEY_MESSAGE, runStream, type ClaudeLike } from './client.ts';
+import { providerId } from './providers/config.ts';
 import { workspaceAiPolicy } from './aiPolicy.ts';
 import { isMember, readPage } from './context.ts';
 import type { ModelRequest } from './prompts.ts';
@@ -41,6 +42,7 @@ const STYLE_HINT: Record<ImageStyle, string> = {
 export interface ImageRequest {
   prompt: string;
   style: ImageStyle;
+  model?: string;
   /** page content the image is about ("Create a chart that visualizes this page") */
   context?: string;
   /** edit: the current image and what to change */
@@ -94,6 +96,7 @@ function svgRequest(req: ImageRequest): ModelRequest {
   return {
     system: [{ type: 'text', text: SVG_SYSTEM, cache_control: { type: 'ephemeral' } }],
     messages: [{ role: 'user', content: parts.join('\n\n') }],
+    model: req.model,
     effort: 'medium',
     maxTokens: 32_000,
   };
@@ -101,7 +104,9 @@ function svgRequest(req: ImageRequest): ModelRequest {
 
 export const claudeSvgProvider: ImageProvider = {
   id: 'claude-svg',
-  label: 'Claude (SVG)',
+  get label() {
+    return providerId() === 'openai' ? 'OpenAI / Gemini (SVG)' : 'Claude (SVG)';
+  },
   canEdit: (mime) => mime === 'image/svg+xml',
   async generate(req, opts) {
     const res = await runStream(svgRequest(req), {}, { client: opts.client });
@@ -113,7 +118,7 @@ export const claudeSvgProvider: ImageProvider = {
       throw new ImageError('provider', e instanceof SvgError ? 'The image could not be created. Try again.' : 'Image generation is temporarily unavailable. Try again.', 502);
     }
     const size = svgSize(svg);
-    return { data: Buffer.from(svg, 'utf8'), mime: 'image/svg+xml', width: size.width, height: size.height, model: 'claude-svg' };
+    return { data: Buffer.from(svg, 'utf8'), mime: 'image/svg+xml', width: size.width, height: size.height, model: res.model || req.model || 'llm-svg' };
   },
 };
 
@@ -142,10 +147,9 @@ export interface ImagePolicy {
 
 export function imagePolicy(spaceId: string): ImagePolicy {
   const space = getRecord<SpaceRecord>('space', spaceId);
-  const plan = space?.plan_type ?? 'plus';
   const setting = (space?.settings as Record<string, unknown> | undefined)?.ai_image_generation;
   return {
-    planIncluded: plan === 'business' || plan === 'enterprise',
+    planIncluded: true,
     enabled: setting !== false,
     aiEnabled: workspaceAiPolicy(spaceId).enabled,
     configured: aiConfigured(),
@@ -162,7 +166,6 @@ export function assertImageAllowed(spaceId: string, userId: string, opts: { clie
   if (!isMember(spaceId, userId)) throw new ImageError('forbidden', 'This workspace is not available to you.', 403);
   const p = imagePolicy(spaceId);
   if (!p.aiEnabled) throw new ImageError('ai_disabled', 'Turn on Litpage AI before generating images.', 403);
-  if (!p.planIncluded) throw new ImageError('plan', 'AI image generation is available on the Business and Enterprise plans.', 403);
   if (!p.enabled) throw new ImageError('disabled', 'Image generation is turned off for this workspace.', 403);
   if (!opts.client && !p.configured) throw new ImageError('no_key', NO_KEY_MESSAGE, 400);
 }
@@ -205,7 +208,7 @@ async function run(req: ImageRequest, client?: ClaudeLike): Promise<GeneratedIma
 }
 
 /** Generate an image (optionally about a page the person can read) and store it as their upload. */
-export async function generateImage(input: { userId: string; spaceId: string; prompt: unknown; style?: unknown; pageId?: unknown; client?: ClaudeLike }): Promise<ImageResult> {
+export async function generateImage(input: { userId: string; spaceId: string; prompt: unknown; style?: unknown; pageId?: unknown; model?: unknown; client?: ClaudeLike }): Promise<ImageResult> {
   const prompt = String(input.prompt ?? '').trim().slice(0, 4000);
   if (!prompt) throw new ImageError('bad_request', 'Tell us what image you want to create…', 400);
   assertImageAllowed(input.spaceId, input.userId, { client: input.client });
@@ -219,7 +222,8 @@ export async function generateImage(input: { userId: string; spaceId: string; pr
   rateCheck(input.userId);
   const style = cleanStyle(input.style);
   const context = page ? readPage(page.id, input.userId, { maxChars: 20_000 })?.markdown : undefined;
-  const img = await run({ prompt, style, context }, input.client);
+  const model = typeof input.model === 'string' && input.model ? input.model : undefined;
+  const img = await run({ prompt, style, context, model }, input.client);
   const file = storeFile(fileName(prompt, img.mime), img.data, input.userId, input.spaceId, img.mime);
   return { file, width: img.width, height: img.height, provider: imageProvider().id, prompt, style };
 }
@@ -261,16 +265,16 @@ function editableImageBlock(blockId: unknown, userId: string): BlockRecord {
 }
 
 /** Image block › AI tab: generate and put the image in the block. */
-export async function generateIntoBlock(input: { userId: string; blockId: unknown; prompt: unknown; style?: unknown; client?: ClaudeLike }) {
+export async function generateIntoBlock(input: { userId: string; blockId: unknown; prompt: unknown; style?: unknown; model?: unknown; client?: ClaudeLike }) {
   const b = editableImageBlock(input.blockId, input.userId);
   const pageId = pageOf(b);
-  const res = await generateImage({ userId: input.userId, spaceId: b.space_id, prompt: input.prompt, style: input.style, pageId, client: input.client });
+  const res = await generateImage({ userId: input.userId, spaceId: b.space_id, prompt: input.prompt, style: input.style, pageId, model: input.model, client: input.client });
   setBlockImage(input.userId, b, res, { prompt: res.prompt, style: res.style, provider: res.provider, file_id: res.file.id, created_time: Date.now() });
   return { ...res, blockId: b.id };
 }
 
 /** "Edit with AI" on an image generated by AI (raster / uploaded images: unavailable). */
-export async function editBlockImage(input: { userId: string; blockId: unknown; instruction: unknown; client?: ClaudeLike }) {
+export async function editBlockImage(input: { userId: string; blockId: unknown; instruction: unknown; model?: unknown; client?: ClaudeLike }) {
   const b = editableImageBlock(input.blockId, input.userId);
   const meta = aiImageOf(b);
   const instruction = String(input.instruction ?? '').trim().slice(0, 4000);
@@ -282,7 +286,8 @@ export async function editBlockImage(input: { userId: string; blockId: unknown; 
   }
   assertImageAllowed(b.space_id, input.userId, { client: input.client });
   rateCheck(input.userId);
-  const img = await run({ prompt: meta.prompt, style: meta.style, source: { data: src.data, mime: src.mime }, instruction }, input.client);
+  const model = typeof input.model === 'string' && input.model ? input.model : undefined;
+  const img = await run({ prompt: meta.prompt, style: meta.style, source: { data: src.data, mime: src.mime }, instruction, model }, input.client);
   const file = storeFile(fileName(meta.prompt, img.mime), img.data, input.userId, b.space_id, img.mime);
   const res: ImageResult = { file, width: img.width, height: img.height, provider: provider.id, prompt: meta.prompt, style: meta.style };
   setBlockImage(input.userId, b, res, { ...meta, file_id: file.id, provider: provider.id, edits: (meta.edits ?? 0) + 1, created_time: Date.now() });

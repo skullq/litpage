@@ -28,12 +28,14 @@ export function imageErrorText(e: unknown): { text: string; noKey: boolean } {
 }
 
 
-export function AiImageTab({ blockId, close, generate }: { blockId?: string; close: () => void; generate?: (prompt: string, style: string) => Promise<unknown> }) {
-  const [prompt, setPrompt] = useState('');
+export function AiImageTab({ blockId, close, generate, initialPrompt }: { blockId?: string; close: () => void; generate?: (prompt: string, style: string) => Promise<unknown>; initialPrompt?: string }) {
+  const [prompt, setPrompt] = useState(initialPrompt ?? '');
   const [style, setStyle] = useState('default');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ text: string; noKey: boolean } | null>(null);
-  const configured = useAiStatus((s) => s.configured);
+  const aiStatus = useAiStatus();
+  const configured = aiStatus.configured;
+  const currentModel = aiStatus.model || 'auto';
   const ref = useRef<HTMLTextAreaElement>(null);
   const alive = useRef(true);
   useEffect(() => {
@@ -53,7 +55,7 @@ export function AiImageTab({ blockId, close, generate }: { blockId?: string; clo
     setError(null);
     try {
       if (generate) await generate(p, style);
-      else if (blockId) await generateIntoBlock(blockId, p, style);
+      else if (blockId) await generateIntoBlock(blockId, p, style, currentModel);
       close();
     } catch (e) {
       if (isNoKeyError(e)) useAiStatus.getState().markUnconfigured();
@@ -105,7 +107,7 @@ export function AiImageTab({ blockId, close, generate }: { blockId?: string; clo
       <div className="nc-aiimg-row">
         {busy
           ? <span className="nc-aiimg-busy" role="status"><span className="nc-aiimg-spinner" />{t('lp.aiimage.generating_image', 'Generating image…')}</span>
-          : <span className="nc-aiimg-caption grow">{t('lp.aiimage.create_a_custom_image_with_ai', 'Create a custom image with AI from your description')}</span>}
+          : <span className="nc-aiimg-caption grow">{t('lp.aiimage.create_a_custom_image_with_ai', 'Create a custom image with AI from your description')}{aiStatus.modelLabel || aiStatus.autoModel ? ` (${aiStatus.modelLabel || aiStatus.autoModel})` : ''}</span>}
         <button
           type="button"
           className="nc-blk-btn primary"
@@ -122,11 +124,11 @@ export function AiImageTab({ blockId, close, generate }: { blockId?: string; clo
 }
 
 
-export function openAiImagePopover(blockId: string, anchor: HTMLElement | DOMRect) {
+export function openAiImagePopover(blockId: string, anchor: HTMLElement | DOMRect, initialPrompt?: string) {
   return openOverlay((close) => (
     <PopoverSurface width={540} className="nc-media-picker">
       <div className="nc-aiimg-head"><Icon name="aiFace" size={16} />{t('lp.aiimage.litpage_ai', 'Litpage AI')}</div>
-      <div className="nc-aiimg-pad"><AiImageTab blockId={blockId} close={close} /></div>
+      <div className="nc-aiimg-pad"><AiImageTab blockId={blockId} close={close} initialPrompt={initialPrompt} /></div>
     </PopoverSurface>
   ), { anchor, placement: 'bottom', offset: 0 });
 }

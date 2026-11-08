@@ -4,7 +4,9 @@ import { create } from 'zustand';
 import type { BlockRecord, SpaceRecord } from '@nc/shared/records.ts';
 import { api } from '../../lib/api.ts';
 import { records } from '../../lib/store/records.ts';
+import { transactions } from '../../lib/store/transactions.ts';
 import { useSession } from '../../lib/store/session.ts';
+import { useAiStatus } from '../ai/aiApi.ts';
 import { t } from '../shell/i18n.ts';
 
 export interface ImageStatus {
@@ -41,9 +43,8 @@ export function imageSwitchOn(spaceId: string | null | undefined): boolean {
   return settings.ai_image_generation !== false && settings.ai_enabled !== false;
 }
 
-export function planIncludesImages(spaceId: string | null | undefined): boolean {
-  const s = records.get<SpaceRecord>('space', spaceId ?? useSession.getState().spaceId);
-  return s?.plan_type === 'business' || s?.plan_type === 'enterprise';
+export function planIncludesImages(_spaceId: string | null | undefined): boolean {
+  return true;
 }
 
 export const STYLES: { key: string; label: () => string }[] = [
@@ -70,15 +71,20 @@ export const PREFILLS: { style: string; text: () => string }[] = [
   { style: 'mockup', text: () => t('lp.aiimage.turn_this_page_into_a_mockup', 'Turn this page into a mockup') },
 ];
 
-export function generateIntoBlock(blockId: string, prompt: string, style: string) {
-  return api<{ url: string; recordMap: any }>('aiGenerateImageBlock', { blockId, prompt, style }).then((r) => { records.mergeRecordMap(r.recordMap); return r; });
+export async function generateIntoBlock(blockId: string, prompt: string, style: string, model?: string) {
+  await transactions.flush();
+  const currentModel = model || useAiStatus.getState().model || 'auto';
+  return api<{ url: string; recordMap: any }>('aiGenerateImageBlock', { blockId, prompt, style, model: currentModel }).then((r) => { records.mergeRecordMap(r.recordMap); return r; });
 }
 
 
-export function generateCover(page: Pick<BlockRecord, 'id' | 'space_id'>, prompt: string, style: string) {
-  return api<{ url: string }>('aiGenerateImage', { spaceId: page.space_id, pageId: page.id, prompt, style });
+export function generateCover(page: Pick<BlockRecord, 'id' | 'space_id'>, prompt: string, style: string, model?: string) {
+  const currentModel = model || useAiStatus.getState().model || 'auto';
+  return api<{ url: string }>('aiGenerateImage', { spaceId: page.space_id, pageId: page.id, prompt, style, model: currentModel });
 }
 
-export function editBlockImage(blockId: string, instruction: string) {
-  return api<{ url: string; recordMap: any }>('aiEditImageBlock', { blockId, instruction }).then((r) => { records.mergeRecordMap(r.recordMap); return r; });
+export async function editBlockImage(blockId: string, instruction: string, model?: string) {
+  await transactions.flush();
+  const currentModel = model || useAiStatus.getState().model || 'auto';
+  return api<{ url: string; recordMap: any }>('aiEditImageBlock', { blockId, instruction, model: currentModel }).then((r) => { records.mergeRecordMap(r.recordMap); return r; });
 }
