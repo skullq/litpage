@@ -324,6 +324,22 @@ Litpage의 아키텍처가 이미 탄탄하게 마련되어 있어 **적은 공�
    - **개발 방안**:
      - `SettingsModal.tsx`의 `navGroups`에 Admin 하위 항목으로 `Analytics`와 `Audit Log`를 정식 노출하고 플랜 가드만 해제.
    - **개발 난이도**: **매우 낮음 (코드 몇 줄 수정)** / **효용 가치**: **매우 높음 (관리자 가시성 확보)**
+4. **GitHub Copilot Enterprise 연동을 위한 내장 Copilot Proxy 브리지 구현** ⭐️ (강력 추천)
+   - **현황 및 배경**:
+     - 사내 엔터프라이즈 환경(SAML SSO + 회사 MFA/Okta/Duo)으로 보호되는 GitHub Copilot 라이선스는 외부 일반 서드파티 웹앱에 직접 호출 가능한 공개 OpenAI 엔드포인트를 제공하지 않음.
+     - 하지만 사용자의 VS Code 또는 GitHub Device OAuth 플로우는 이미 사내 보안 인증을 통과한 상태이므로, 이를 브리지하면 추가 유료 API 결제 없이 사내 Copilot의 고성능 LLM(GPT-4o, Claude 3.5 Sonnet)을 Litpage 전체에서 활용 가능.
+   - **구현 및 연동 방안**:
+     - **방안 A. Litpage 서버 내장 Copilot Proxy 모듈 구현 (가장 이상적)**:
+       - `apps/server/src/ai/copilotBridge.ts` 모듈 신설
+       - GitHub Device Code Flow (`https://github.com/login/device/code`)를 통해 브라우저에서 사내 MFA 로그인 및 엔터프라이즈 SSO 승인 수행
+       - 획득한 OAuth 토큰(`ghu_...`)으로 Copilot 내부 엔드포인트(`https://api.github.com/copilot_internal/v2/token`)를 호출하여 만료 시간이 있는 Copilot 세션 토큰(`tid=...`) 자동 갱신 및 캐싱
+       - Litpage의 기존 OpenAI 클라이언트 요청을 `https://api.business.githubcopilot.com/chat/completions` (또는 `api.githubcopilot.com`)로 투명하게 프록시 변환
+       - UI(`Settings > Litpage AI`): "GitHub Copilot 로그인" 버튼 원클릭으로 사내 MFA 연동 지원
+     - **방안 B. 외부 로컬 프록시(VS Code 확장 프로그램 / copilot-api) 연동 가이드**:
+       - 별도 서버 코드 추가 없이 즉시 사용하는 경량 옵션
+       - VS Code 마켓플레이스의 `Copilot Proxy` 확장을 활성화하여 이미 로그인된 사내 VS Code 세션을 `http://127.0.0.1:8080/v1` 로컬 OpenAI 호환 엔드포인트로 노출
+       - Litpage의 AI Base URL에 등록하여 무설정 즉시 연동
+   - **개발 난이도**: **보통 (Medium - 약 1~2일 공수)** / **효용 가치**: **매우 높음 (Very High)** (기업 환경에서 추가 LLM 토큰 비용 지출 없이 무제한 사내 Copilot 쿼터 활용 가능)
 
 ---
 
@@ -334,4 +350,5 @@ Litpage의 아키텍처가 이미 탄탄하게 마련되어 있어 **적은 공�
 | **P0** | **스텁 UI 정리 (UI 청소)** | `Mail & Calendar`, `AI Connectors`, `Connections > Browse`, `SAML SSO` 등 클릭 시 오류가 나는 껍데기 UI를 주석 처리하거나 제거하여 서비스 완성도 및 사용자 신뢰도 제고 |
 | **P1** | **Admin 분석 및 감사 로그 활성화** | 이미 100% 구현된 `Analytics`와 `Audit Log`를 좌측 메뉴에 정식 노출하여 관리자 편의성 증대 |
 | **P2** | **회의록 STT 엔진 연결** | `audio.ts`에 Whisper 연동 코드를 추가하여 음성 녹음/업로드 시 자동 회의록 텍스트 변환 및 AI 요약 파이프라인 완성 |
+| **P2** | **GitHub Copilot Enterprise 브리지 연동** | 사내 MFA/SSO 통과 Copilot 세션을 브리지하여 Litpage 전사 AI 모델(GPT-4o/Claude)로 연동 (추가 과금 방지) |
 | **P3** | **도메인 검증 DNS 확인 기능 추가** | Node.js 내장 `dns` 라이브러리로 DNS TXT 레코드 자동 확인 엔드포인트 구현 |
