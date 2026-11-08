@@ -6,6 +6,11 @@
   "engines": { "node": ">=26" },
   "scripts": {
     "dev": "node scripts/dev.mjs",
+    "app:start": "./scripts/run.sh start",
+    "app:stop": "./scripts/run.sh stop",
+    "app:restart": "./scripts/run.sh restart",
+    "app:status": "./scripts/run.sh status",
+    "app:logs": "./scripts/run.sh logs",
     "dev:server": "pnpm --filter @nc/server dev",
     "dev:web": "pnpm --filter @nc/web dev",
     "build": "pnpm --filter @nc/web build",

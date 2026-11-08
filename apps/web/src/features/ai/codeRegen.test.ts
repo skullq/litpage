@@ -16,19 +16,21 @@ describe('code block regeneration and color scheme preservation', () => {
     records.mergeRecordMap({
       block: {
         [codeId]: {
-          role: 'editor',
           value: {
-            id: codeId,
-            type: 'code',
-            alive: true,
-            parent_id: 'page-1',
-            parent_table: 'block',
-            properties: {
-              title: [['interface GigabitEthernet0/1\n ip address 10.0.0.1 255.255.255.0\n no shutdown']],
-              language: [['Cisco IOS-XE']],
-            },
-            format: { code_wrap: true, code_line_numbers: true },
-          } as any,
+            role: 'editor',
+            value: {
+              id: codeId,
+              type: 'code',
+              alive: true,
+              parent_id: 'page-1',
+              parent_table: 'block',
+              properties: {
+                title: [['interface GigabitEthernet0/1\n ip address 10.0.0.1 255.255.255.0\n no shutdown']],
+                language: [['Cisco IOS-XE']],
+              },
+              format: { code_wrap: true, code_line_numbers: true },
+            } as any,
+          },
         },
       },
     });
@@ -53,19 +55,21 @@ describe('code block regeneration and color scheme preservation', () => {
     records.mergeRecordMap({
       block: {
         [codeId]: {
-          role: 'editor',
           value: {
-            id: codeId,
-            type: 'code',
-            alive: true,
-            parent_id: 'page-1',
-            parent_table: 'block',
-            properties: {
-              title: [['router bgp 65000']],
-              language: [['Cisco NX-OS']],
-            },
-            format: { code_wrap: false },
-          } as any,
+            role: 'editor',
+            value: {
+              id: codeId,
+              type: 'code',
+              alive: true,
+              parent_id: 'page-1',
+              parent_table: 'block',
+              properties: {
+                title: [['router bgp 65000']],
+                language: [['Cisco NX-OS']],
+              },
+              format: { code_wrap: false },
+            } as any,
+          },
         },
       },
     });
@@ -85,19 +89,21 @@ describe('code block regeneration and color scheme preservation', () => {
     records.mergeRecordMap({
       block: {
         [codeId]: {
-          role: 'editor',
           value: {
-            id: codeId,
-            type: 'code',
-            alive: true,
-            parent_id: 'page-1',
-            parent_table: 'block',
-            properties: {
-              title: [['def hello():\n    pass']],
-              language: [['Python']],
-            },
-            format: { code_line_numbers: true },
-          } as any,
+            role: 'editor',
+            value: {
+              id: codeId,
+              type: 'code',
+              alive: true,
+              parent_id: 'page-1',
+              parent_table: 'block',
+              properties: {
+                title: [['def hello():\n    pass']],
+                language: [['Python']],
+              },
+              format: { code_line_numbers: true },
+            } as any,
+          },
         },
       },
     });
@@ -118,18 +124,20 @@ describe('code block regeneration and color scheme preservation', () => {
     records.mergeRecordMap({
       block: {
         [codeId]: {
-          role: 'editor',
           value: {
-            id: codeId,
-            type: 'code',
-            alive: true,
-            parent_id: 'page-1',
-            parent_table: 'block',
-            properties: {
-              title: [['const x = 10;']],
-              language: [['TypeScript']],
-            },
-          } as any,
+            role: 'editor',
+            value: {
+              id: codeId,
+              type: 'code',
+              alive: true,
+              parent_id: 'page-1',
+              parent_table: 'block',
+              properties: {
+                title: [['const x = 10;']],
+                language: [['TypeScript']],
+              },
+            } as any,
+          },
         },
       },
     });
