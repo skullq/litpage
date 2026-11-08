@@ -6,7 +6,7 @@ import { isSpaceMember } from '@nc/shared/permissions.ts';
 import { getRecord } from '../../db.ts';
 import { RecordMapBuilder, blockRole } from '../../records.ts';
 import { ApiError, type Ctx } from '../handlers.ts';
-import { IMAGE_STYLES, ImageError, aiImageOf, editBlockImage, generateImage, generateIntoBlock, imagePolicy, imageProvider } from '../../ai/image.ts';
+import { IMAGE_STYLES, ImageError, aiImageOf, editBlockImage, generateImage, generateIntoBlock, imagePolicy, imageProvider, resolveImageModel } from '../../ai/image.ts';
 import '../../ai/imageTool.ts';
 
 type Handler = (ctx: Ctx, body: any) => any;
@@ -37,7 +37,45 @@ export const handlers: Record<string, Handler> = {
     const space = getRecord<SpaceRecord>('space', String(spaceId ?? ''));
     if (!space || !isSpaceMember(space, uid)) throw new ApiError('Not found', 404);
     const p = imagePolicy(space.id);
-    return { ...p, available: p.planIncluded && p.enabled && p.aiEnabled, provider: imageProvider().label, styles: IMAGE_STYLES };
+    return { ...p, available: p.planIncluded && p.enabled && p.aiEnabled, provider: imageProvider().label, styles: IMAGE_STYLES, imageModel: p.imageModel, imageModelLabel: p.imageModelLabel };
+  },
+
+  /** Test image generation LLM connection and return latency / SVG sample */
+  async aiTestImageModel(ctx, { spaceId, model }) {
+    const uid = requireUser(ctx);
+    const space = getRecord<SpaceRecord>('space', String(spaceId ?? ''));
+    if (!space || !isSpaceMember(space, uid)) throw new ApiError('Not found', 404);
+    const targetModel = resolveImageModel(space.id, typeof model === 'string' ? model : undefined);
+    const startTime = Date.now();
+    try {
+      const testPrompt = 'A minimalist star icon with clean geometric lines';
+      const r = await generateImage({
+        userId: uid,
+        spaceId: space.id,
+        prompt: testPrompt,
+        style: 'default',
+        model: targetModel,
+        skipRateCheck: true,
+      });
+      const durationMs = Date.now() - startTime;
+      return {
+        ok: true,
+        model: targetModel,
+        durationMs,
+        url: r.file.url,
+        width: r.width,
+        height: r.height,
+      };
+    } catch (e: any) {
+      const durationMs = Date.now() - startTime;
+      return {
+        ok: false,
+        model: targetModel,
+        durationMs,
+        error: e.message || 'Image generation failed',
+        code: e.code || 'provider_error',
+      };
+    }
   },
 
   async aiGenerateImageBlock(ctx, { blockId, prompt, style, model }) {

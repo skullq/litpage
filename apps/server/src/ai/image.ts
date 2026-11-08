@@ -20,6 +20,7 @@ import { workspaceAiPolicy } from './aiPolicy.ts';
 import { isMember, readPage } from './context.ts';
 import type { ModelRequest } from './prompts.ts';
 import { sanitizeSvg, svgSize, SvgError } from './imageSvg.ts';
+import { DEFAULT_MODEL, modelLabel } from './models.ts';
 
 export const IMAGE_STYLES = ['default', 'diagram', 'infographic', 'chart', 'slide', 'mockup', 'photo', 'sketch', 'cartoon', 'comic', 'pattern', 'modern_art'] as const;
 export type ImageStyle = (typeof IMAGE_STYLES)[number];
@@ -143,16 +144,37 @@ export interface ImagePolicy {
   /** AI itself is enabled */
   aiEnabled: boolean;
   configured: boolean;
+  imageModel: string;
+  imageModelLabel: string;
+}
+
+export function resolveImageModel(spaceId?: string | null, explicitModel?: string | null): string {
+  if (explicitModel && typeof explicitModel === 'string' && explicitModel.trim() && explicitModel !== 'auto') {
+    return explicitModel.trim();
+  }
+  if (spaceId) {
+    const space = getRecord<SpaceRecord>('space', spaceId);
+    const spaceImageModel = (space?.settings as Record<string, unknown> | undefined)?.ai_image_model;
+    if (typeof spaceImageModel === 'string' && spaceImageModel.trim() && spaceImageModel !== 'auto') {
+      return spaceImageModel.trim();
+    }
+  }
+  const envImage = process.env.NC_AI_IMAGE_MODEL?.trim();
+  if (envImage) return envImage;
+  return DEFAULT_MODEL;
 }
 
 export function imagePolicy(spaceId: string): ImagePolicy {
   const space = getRecord<SpaceRecord>('space', spaceId);
   const setting = (space?.settings as Record<string, unknown> | undefined)?.ai_image_generation;
+  const currentModel = resolveImageModel(spaceId);
   return {
     planIncluded: true,
     enabled: setting !== false,
     aiEnabled: workspaceAiPolicy(spaceId).enabled,
     configured: aiConfigured(),
+    imageModel: currentModel,
+    imageModelLabel: modelLabel(currentModel),
   };
 }
 
@@ -203,12 +225,19 @@ async function run(req: ImageRequest, client?: ClaudeLike): Promise<GeneratedIma
     const err = mapError(e);
     if (err.code === 'rate_limited') throw new ImageError('rate_limited', 'You have reached the image limit. Try again later.', 429);
     if (err.code === 'no_key' || err.code === 'invalid_key') throw new ImageError(err.code, err.message, 400);
-    throw new ImageError('provider', 'Image generation is temporarily unavailable. Try again.', 502);
+    if (err.code === 'not_found') {
+      throw new ImageError('not_found', `지정한 이미지 생성 모델(${req.model || '기본 모델'})을 찾을 수 없습니다: ${err.message}`, 400);
+    }
+    if (err.code === 'bad_request' || err.code === 'permission') {
+      throw new ImageError(err.code, `이미지 생성 LLM 오류 (${req.model || '기본 모델'}): ${err.message}`, 400);
+    }
+    const msg = (e as any)?.message || err.message || 'Image generation failed';
+    throw new ImageError('provider', `이미지 생성 중 오류가 발생했습니다 (${req.model || '기본 모델'}): ${msg}`, 502);
   }
 }
 
 /** Generate an image (optionally about a page the person can read) and store it as their upload. */
-export async function generateImage(input: { userId: string; spaceId: string; prompt: unknown; style?: unknown; pageId?: unknown; model?: unknown; client?: ClaudeLike }): Promise<ImageResult> {
+export async function generateImage(input: { userId: string; spaceId: string; prompt: unknown; style?: unknown; pageId?: unknown; model?: unknown; client?: ClaudeLike; skipRateCheck?: boolean }): Promise<ImageResult> {
   const prompt = String(input.prompt ?? '').trim().slice(0, 4000);
   if (!prompt) throw new ImageError('bad_request', 'Tell us what image you want to create…', 400);
   assertImageAllowed(input.spaceId, input.userId, { client: input.client });
@@ -219,10 +248,10 @@ export async function generateImage(input: { userId: string; spaceId: string; pr
   if (pageId && (!page || page.alive === false || blockRole(page.id, input.userId) === 'none' || page.space_id !== input.spaceId)) {
     throw new ImageError('forbidden', 'You don’t have access to this page.', 403);
   }
-  rateCheck(input.userId);
+  if (!input.skipRateCheck) rateCheck(input.userId);
   const style = cleanStyle(input.style);
   const context = page ? readPage(page.id, input.userId, { maxChars: 20_000 })?.markdown : undefined;
-  const model = typeof input.model === 'string' && input.model ? input.model : undefined;
+  const model = resolveImageModel(input.spaceId, typeof input.model === 'string' ? input.model : undefined);
   const img = await run({ prompt, style, context, model }, input.client);
   const file = storeFile(fileName(prompt, img.mime), img.data, input.userId, input.spaceId, img.mime);
   return { file, width: img.width, height: img.height, provider: imageProvider().id, prompt, style };
@@ -286,7 +315,7 @@ export async function editBlockImage(input: { userId: string; blockId: unknown; 
   }
   assertImageAllowed(b.space_id, input.userId, { client: input.client });
   rateCheck(input.userId);
-  const model = typeof input.model === 'string' && input.model ? input.model : undefined;
+  const model = resolveImageModel(b.space_id, typeof input.model === 'string' ? input.model : undefined);
   const img = await run({ prompt: meta.prompt, style: meta.style, source: { data: src.data, mime: src.mime }, instruction, model }, input.client);
   const file = storeFile(fileName(meta.prompt, img.mime), img.data, input.userId, b.space_id, img.mime);
   const res: ImageResult = { file, width: img.width, height: img.height, provider: provider.id, prompt: meta.prompt, style: meta.style };

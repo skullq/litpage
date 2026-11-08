@@ -68,13 +68,19 @@ function openaiInfo(m: OpenAIModel): ModelInfo {
 /** Bring MODELS / DEFAULT_MODEL in line with the active provider (cheap; every lookup calls it). */
 export function syncModels(): void {
   const envModel = process.env.NC_AI_MODEL?.trim() ?? '';
+  const envAllowed = process.env.NC_AI_ALLOWED_MODELS?.trim();
   if (providerId() === 'openai') {
     const list = cachedOpenAIModels();
-    const key = `openai|${envModel}|${openaiModelsVersion()}|${list ? 1 : 0}`;
+    const key = `openai|${envModel}|${envAllowed ?? ''}|${openaiModelsVersion()}|${list ? 1 : 0}`;
     if (key === syncedKey) return;
     syncedKey = key;
-    const listed = (list ?? []).filter((m) => m.visibility !== 'hide').map(openaiInfo);
+    let listed = (list ?? []).filter((m) => m.visibility !== 'hide').map(openaiInfo);
     hiddenOpenAI = (list ?? []).filter((m) => m.visibility === 'hide').map(openaiInfo);
+    if (envAllowed) {
+      const allowedSet = new Set(envAllowed.split(',').map((s) => s.trim()).filter(Boolean));
+      listed = listed.filter((m) => allowedSet.has(m.id) || (m.id.startsWith('models/') && allowedSet.has(m.id.slice(7))));
+      hiddenOpenAI = hiddenOpenAI.filter((m) => allowedSet.has(m.id) || (m.id.startsWith('models/') && allowedSet.has(m.id.slice(7))));
+    }
     if (listed.length && !listed.some((m) => m.group === 'recommended')) listed.slice(0, 3).forEach((m) => (m.group = 'recommended'));
     const def = envModel || listed.find((m) => /^gpt-/i.test(m.id))?.id || listed[0]?.id || '';
     if (!def) {
@@ -83,8 +89,8 @@ export function syncModels(): void {
       DEFAULT_MODEL = '';
       return;
     }
-    if (!listed.some((m) => m.id === def)) {
-      const hidden = hiddenOpenAI.find((m) => m.id === def);
+    if (!listed.some((m) => m.id === def || (m.id.startsWith('models/') && m.id.slice(7) === def))) {
+      const hidden = hiddenOpenAI.find((m) => m.id === def || (m.id.startsWith('models/') && m.id.slice(7) === def));
       listed.unshift(hidden ? { ...hidden, group: 'recommended' } : { id: def, name: def, version: '', group: 'recommended', description: 'The deployment’s default model.', fallback: false, dynamicWebTools: true });
     }
     MODELS.splice(0, MODELS.length, ...listed);

@@ -168,4 +168,31 @@ describe('chat tool generate_image', () => {
     const agentOut = await runTool({ ...env, source: 'agent:run1' }, 'generate_image', { prompt: 'x' }, 'step2');
     expect(agentOut.isError).toBe(true);
   });
+
+  it('resolves image model with workspace settings and environment override', () => {
+    expect(image.resolveImageModel(ids.space)).toBeDefined();
+    process.env.NC_AI_IMAGE_MODEL = 'gemini-custom-img';
+    expect(image.resolveImageModel(ids.space)).toBe('gemini-custom-img');
+    delete process.env.NC_AI_IMAGE_MODEL;
+
+    // workspace setting takes precedence when set
+    db.putRecord('space', { ...db.getRecord('space', ids.space), settings: { ai_image_model: 'workspace-img-model' } } as any);
+    expect(image.resolveImageModel(ids.space)).toBe('workspace-img-model');
+
+    // explicit model override takes top precedence
+    expect(image.resolveImageModel(ids.space, 'explicit-model')).toBe('explicit-model');
+  });
+
+  it('runs aiTestImageModel and returns latency, model and preview', async () => {
+    const { handlers } = await import('../src/api/modules/aiImage.ts');
+    const { claudeSvgProvider, registerImageProvider } = image;
+    registerImageProvider({ ...claudeSvgProvider, generate: (req, o) => claudeSvgProvider.generate(req, { ...o, client: fake('<svg viewBox="0 0 20 10"><rect width="20" height="10"/></svg>') as any }) });
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test-0000000000';
+    const res = await handlers.aiTestImageModel({ userId: ids.owner } as any, { spaceId: ids.space, model: 'test-model' });
+    delete process.env.ANTHROPIC_API_KEY;
+    expect(res.ok).toBe(true);
+    expect(res.model).toBe('test-model');
+    expect(typeof res.durationMs).toBe('number');
+    expect(res.url).toMatch(/^\/files\//);
+  });
 });
