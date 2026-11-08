@@ -219,8 +219,15 @@ only talk to local mock servers.
 
   The `Litpage-Version` header is optional and defaults to the current version.
 - **Webhooks** for page, database and comment events, signed with HMAC-SHA256 and retried on failure.
-- **MCP endpoint** at `/api/mcp` so AI clients that speak the Model Context Protocol can search and edit the pages you
-  can access, with the same permission checks as the app.
+- **MCP endpoint** at `/mcp` (also `/api/mcp`) so AI clients that speak the Model Context Protocol can search and edit
+  the pages you can access, with the same permission checks as the app. Clients that support MCP authorization (Claude,
+  ChatGPT, Cursor, VS Code…) only need the server URL: Litpage is its own OAuth 2.1 server (discovery under
+  `/.well-known/`, dynamic client registration, PKCE), so you sign in, pick a workspace and allow access. Other clients
+  use a personal access token from Settings → Litpage MCP. OAuth uses the address the client connected to; behind a
+  reverse proxy set `NC_TRUST_PROXY=1` so it sees the public scheme and host.
+  Edits can be partial (replace a phrase inside a block, insert after a passage, replace a range) or cover many database
+  rows at once (`lit-update-rows`). Every edit from AI chat, agents or MCP saves the page's previous state as a version
+  first; `lit-get-versions` lists and compares versions and `lit-manage-versions` names or restores one.
 
 ## Architecture
 
