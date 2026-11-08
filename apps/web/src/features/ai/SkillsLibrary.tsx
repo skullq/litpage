@@ -362,12 +362,17 @@ function SkillRow({
 }
 
 export function SkillsTab({
-  seg,
-  setSeg,
+  seg: propSeg,
+  setSeg: propSetSeg,
+  inSettings = false,
 }: {
-  seg: 'all' | 'enabled' | 'discover';
-  setSeg: (v: 'all' | 'enabled' | 'discover') => void;
-}) {
+  seg?: 'all' | 'enabled' | 'discover';
+  setSeg?: (v: 'all' | 'enabled' | 'discover') => void;
+  inSettings?: boolean;
+} = {}) {
+  const [localSeg, setLocalSeg] = useState<'all' | 'enabled' | 'discover'>('all');
+  const seg = propSeg ?? localSeg;
+  const setSeg = propSetSeg ?? setLocalSeg;
   const { enabled, discover, loading, error } = useSkills();
   const [modalSkill, setModalSkill] = useState<SkillInfo | null | undefined>(undefined);
   const [confirmDelete, setConfirmDelete] = useState<SkillInfo | null>(null);
@@ -415,7 +420,7 @@ export function SkillsTab({
   };
 
   return (
-    <div className="nc-lib-skills">
+    <div className={`nc-lib-skills ${inSettings ? 'in-settings' : ''}`}>
       <div className="nc-lib-skills-header">
         <div className="nc-lib-seg" role="tablist" aria-label="Skill library sections">
           <div
@@ -521,7 +526,7 @@ export function SkillsTab({
 
       {/* Delete Confirmation Modal */}
       {confirmDelete && (
-        <Modal open={!!confirmDelete} onClose={() => setConfirmDelete(null)} width={420}>
+        <Modal open={!!confirmDelete} onClose={() => setConfirmDelete(null)} width={420} className="nc-skill-confirm-modal">
           <div className="nc-skill-confirm-dialog">
             <div className="nc-skill-confirm-header">
               <Icon name="warning" size={20} style={{ color: 'var(--lp-red-icon-accent, #d93838)' }} />

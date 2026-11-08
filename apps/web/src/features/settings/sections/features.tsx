@@ -23,6 +23,7 @@ import { VerifiedPagesTable } from '../../page/VerifiedPagesTable.tsx';
 import { AgentsAdmin } from '../../agents/AgentsAdmin.tsx';
 import { ImageGenerationSettings } from '../../aiImage/ImageSettings.tsx';
 import { developersUrl, openDevelopers } from '../../developer/api.ts';
+import { SkillsTab } from '../../ai/SkillsLibrary.tsx';
 
 function closeSettings() {
   useUI.getState().set({ settingsOpen: false });
@@ -216,9 +217,8 @@ export function LitAISection() {
           title={t('lp.settings.skills', 'Skills')}
           description={t('lp.settings.skills_are_repeatable_tasks_that_ai', 'Skills are repeatable tasks that AI can complete from a chat or a page selection.')}
         >
-          <div className="nc-set-empty-card">
-            <div>{t('lp.settings.find_and_set_up_skills_in', 'Find and set up skills in the Library')}</div>
-            <Button onClick={() => { closeSettings(); navigate(`/${spaceDomain(useSession.getState().spaceId)}/library/skills`); }}>{t('lp.settings.open_library', 'Open Library')}</Button>
+          <div style={{ marginTop: 12 }}>
+            <SkillsTab inSettings />
           </div>
         </Group>
       )}

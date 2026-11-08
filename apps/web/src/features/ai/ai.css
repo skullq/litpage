@@ -622,6 +622,17 @@
 .nc-search-clear:hover { color: var(--lp-text-primary); }
 .nc-badge.green { background: var(--lp-green-bg-secondary, rgba(46, 160, 67, 0.15)); color: var(--lp-green-text-secondary, #2ea043); }
 
+.nc-modal-layer:has(.nc-skill-modal),
+.nc-modal-layer:has(.nc-skill-confirm-modal) {
+  z-index: 1000;
+}
+.nc-lib-skills.in-settings {
+  padding: 0 !important;
+}
+.nc-lib-skills.in-settings .nc-lib-skills-header {
+  margin-bottom: 8px;
+}
+
 /* Skill Create / Edit Modal */
 .nc-skill-modal { padding: 0; background: var(--lp-bg-primary); border-radius: 12px; box-shadow: var(--lp-shadow-outset-large); }
 .nc-skill-modal-content { display: flex; flex-direction: column; max-height: calc(100vh - 120px); }
