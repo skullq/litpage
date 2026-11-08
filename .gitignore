@@ -1,13 +1,49 @@
+# Dependencies
 node_modules
+scripts/node_modules
+
+# Production & Build outputs
 dist
+build
+*.tsbuildinfo
+.vite
+
+# Runtime data & SQLite databases
 apps/server/data
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Logs & PIDs
 *.log
 logs/
 .litpage.pid
-.DS_Store
-e2e/test-results
-e2e/playwright-report
-scripts/node_modules
-# local secrets (AI provider keys and similar) are never committed
+
+# Environment variables & secrets (never commit local API keys or secrets)
+.env
 .env.local
 .env.*.local
+!.env.example
+
+# Test & E2E reports
+coverage/
+e2e/test-results
+e2e/playwright-report
+playwright/.cache/
+
+# Temporary & Scratch folders
+scratch/
+*.swp
+*.swo
+*~
+
+# Operating System & Editor artifacts
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
