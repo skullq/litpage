@@ -367,3 +367,4 @@ export function AiEnvSettings({ space, admin }: { space: SpaceRecord; admin: boo
     </Group>
   );
 }
+

@@ -31,3 +31,4 @@ describe('ai envConfig file operations', () => {
     expect(raw).toContain('NC_AI_IMAGE_MODEL=image-model-1');
   });
 });
+

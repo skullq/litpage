@@ -56,6 +56,7 @@ export function settingsIndex(): SettingsHit[] {
     // Workspace › General
     { section: 'general', id: 'workspace-name', label: t('lp.settings.workspace_name', 'Workspace name') },
     { section: 'general', id: 'workspace-icon', label: t('lp.settings.icon', 'Icon') },
+    { section: 'general', id: 'collaboration-enabled', label: t('lp.settings.collaboration_mode', 'Collaboration mode'), description: t('lp.settings.enable_collaboration', 'Enable collaboration'), keywords: ['collaboration', 'single user', 'personal mode', '협업', '협업 모드', '개인 모드', '1인 모드'] },
     { section: 'general', id: 'allowed-email-domains', label: t('lp.settings.allowed_domains', 'Allowed domains'), keywords: ['trusted domain', 'auto join', t('lp.settings.allowed_email_domains', 'Verified email domains'), t('lp.settings.email_allowlist', 'Email allowlist')] },
     { section: 'general', id: 'allowed-email-domains-join', label: t('lp.settings.let_teammates_from_approved_email_domain', 'Let teammates from approved email domains join as members'), keywords: ['join automatically', 'ask to join'] },
     { section: 'general', id: 'show-lit-apps', label: t('lp.settings.sidebar_shortcuts_to_other_litpage_apps', 'Sidebar shortcuts to other Litpage apps') },
